@@ -1,12 +1,33 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import Header from "@/components/Header";
+import Hero from "@/components/Hero";
+import DataUpload from "@/components/DataUpload";
+import AnalysisSelection from "@/components/AnalysisSelection";
+import ResultsPanel from "@/components/ResultsPanel";
 
 const Index = () => {
+  const [uploadedData, setUploadedData] = useState<any>(null);
+  const [selectedAnalysis, setSelectedAnalysis] = useState<string>("");
+  const [analysisResults, setAnalysisResults] = useState<any>(null);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-gradient-subtle">
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        <Hero />
+        <div className="mt-12 space-y-8">
+          <DataUpload onDataUploaded={setUploadedData} />
+          {uploadedData && (
+            <AnalysisSelection 
+              onAnalysisSelected={setSelectedAnalysis}
+              selectedAnalysis={selectedAnalysis}
+            />
+          )}
+          {analysisResults && (
+            <ResultsPanel results={analysisResults} />
+          )}
+        </div>
+      </main>
     </div>
   );
 };
