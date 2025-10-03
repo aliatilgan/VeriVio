@@ -32,6 +32,7 @@ xlrd==2.0.1
 
 # Yardımcı Kütüphaneler
 pydantic==2.4.2
+pydantic-settings==2.0.3
 python-dotenv==1.0.0
 requests==2.31.0
 aiofiles==23.2.1
@@ -48,6 +49,48 @@ pymc==5.7.2
 arviz==0.15.1
 
 # Zaman Serisi
+arch==5.3.1
+pmdarima==2.0.3
+
+# Makine Öğrenmesi (Gelişmiş)
+lightgbm==4.0.0
+catboost==1.2.2
+imbalanced-learn==0.11.0
+
+# Yapısal Eşitlik Modellemesi
+semopy==2.3.8
+
+# Survival Analysis (Gelişmiş)
+sksurv==0.21.0
+
+# Çok Düzeyli Analiz
+pymer4==0.7.16
+
+# Meta Analiz
+metapy==0.2.4
+
+# GIS ve Coğrafi Analiz
+geopandas==0.13.2
+folium==0.14.0
+
+# Doğal Dil İşleme (Metin Analizi)
+nltk==3.8.1
+textblob==0.17.1
+
+# Performans ve Optimizasyon
+numba==0.57.1
+dask==2023.8.0
+
+# Güvenlik ve Validasyon
+cryptography==41.0.3
+marshmallow==3.20.1
+
+# Raporlama
+jinja2==3.1.2
+weasyprint==59.0
+
+# Çevre Değişkenleri
+python-decouple==3.8
 arch==6.2.0
 pmdarima==2.0.3
 

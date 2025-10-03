@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import DataUpload from "@/components/DataUpload";
@@ -24,6 +25,7 @@ const Index = () => {
   
   const [showUserGuide, setShowUserGuide] = useState(false);
   const { isMobile } = useResponsive();
+  const navigate = useNavigate();
 
   const handleAnalysisSelected = async (analysis: string) => {
     setSelectedAnalysis(analysis);
@@ -39,15 +41,24 @@ const Index = () => {
   };
 
   const handleDataUploaded = (data: { fileName: string; size: number; parsedData: any[] }) => {
+    console.log('Index - handleDataUploaded called with:', data);
     const columns = data.parsedData.length > 0 ? Object.keys(data.parsedData[0]) : [];
-    setUploadedData({
+    const uploadedData = {
       ...data,
       columns,
       rowCount: data.parsedData.length,
       uploadedAt: new Date(),
       fileType: data.fileName.split('.').pop() || 'unknown'
-    });
-    showNotification('success', 'File Uploaded', `Successfully uploaded ${data.fileName}`);
+    };
+    console.log('Index - setting uploaded data:', uploadedData);
+    setUploadedData(uploadedData);
+    showNotification('success', 'Başarılı!', 'Veri başarıyla yüklendi. Analiz sayfasına yönlendiriliyorsunuz...');
+    
+    // Redirect to analyses page after successful upload
+    setTimeout(() => {
+      console.log('Index - navigating to /analyses');
+      navigate('/analyses');
+    }, 1500);
   };
 
   const sidebar = (

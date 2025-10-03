@@ -1,0 +1,144 @@
+{
+  "root_endpoint": {
+    "endpoint": "/",
+    "method": "GET",
+    "status_code": 200,
+    "success": true,
+    "response_time": 2.035003,
+    "response_data": {
+      "message": "VeriVio Analytics API",
+      "version": "1.0.0",
+      "status": "active",
+      "timestamp": "2025-10-03T13:16:39.156158"
+    },
+    "error": null
+  },
+  "health_check": {
+    "endpoint": "/health",
+    "method": "GET",
+    "status_code": 200,
+    "success": true,
+    "response_time": 0.001515,
+    "response_data": {
+      "status": "healthy",
+      "timestamp": "2025-10-03T13:16:40.159147",
+      "modules": {
+        "data_processing": true,
+        "descriptive_stats": true,
+        "visualization": true,
+        "hypothesis_testing": true,
+        "regression": true,
+        "factor_clustering": true,
+        "advanced_analysis": true,
+        "machine_learning": true,
+        "time_series": true,
+        "survival_analysis": true,
+        "meta_analysis": true,
+        "finance": true,
+        "marketing": true,
+        "healthcare": true,
+        "social_sciences": true,
+        "education": true,
+        "engineering": true,
+        "environmental": true
+      }
+    },
+    "error": null
+  },
+  "file_upload": {
+    "endpoint": "/upload",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_time": 0.003814,
+    "response_data": {
+      "file_id": "d2b7cc6c-6fcf-4802-9fa6-c3d3c7db6ed9",
+      "filename": "test_data.csv",
+      "message": "Dosya başarıyla yüklendi",
+      "status": "success"
+    },
+    "error": null
+  },
+  "list_files": {
+    "endpoint": "/files",
+    "method": "GET",
+    "status_code": 200,
+    "success": true,
+    "response_time": 0.001442,
+    "response_data": {
+      "files": {
+        "d2b7cc6c-6fcf-4802-9fa6-c3d3c7db6ed9": {
+          "filename": "test_data.csv",
+          "file_type": "csv",
+          "upload_time": "2025-10-03T13:16:41.164506",
+          "size": 123979
+        }
+      },
+      "count": 1
+    },
+    "error": null
+  },
+  "descriptive_analysis": {
+    "endpoint": "/analyze",
+    "method": "POST",
+    "analysis_type": "descriptive",
+    "status_code": 500,
+    "success": false,
+    "response_time": 0.010835,
+    "response_data": null,
+    "error": null
+  },
+  "visualization": {
+    "endpoint": "/analyze",
+    "method": "POST",
+    "analysis_type": "visualization",
+    "status_code": 500,
+    "success": false,
+    "response_time": 1.41494,
+    "response_data": null,
+    "error": null
+  },
+  "hypothesis_test": {
+    "endpoint": "/analyze",
+    "method": "POST",
+    "analysis_type": "hypothesis_test",
+    "status_code": 200,
+    "success": true,
+    "response_time": 1.454469,
+    "response_data": {
+      "analysis_id": "d2b7cc6c-6fcf-4802-9fa6-c3d3c7db6ed9_AnalysisType.HYPOTHESIS_TEST_1759486608.054826",
+      "status": "success",
+      "results": {
+        "descriptive_stats": null,
+        "statistical_test": null,
+        "regression": null,
+        "visualizations": null,
+        "correlation_matrix": null,
+        "clustering": null,
+        "factor_analysis": null,
+        "machine_learning": null,
+        "time_series": null,
+        "domain_specific": null,
+        "insights": null,
+        "recommendations": null,
+        "data_quality_report": null,
+        "interpretation": null,
+        "summary": null
+      },
+      "timestamp": "2025-10-03T13:16:48.055361",
+      "execution_time": null,
+      "warnings": null
+    },
+    "error": null
+  },
+  "regression_analysis": {
+    "endpoint": "/analyze",
+    "method": "POST",
+    "analysis_type": "regression",
+    "status_code": 500,
+    "success": false,
+    "response_time": 1.477361,
+    "response_data": null,
+    "error": null
+  }
+}

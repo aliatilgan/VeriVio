@@ -1,303 +1,189 @@
-"""
-VeriVio Backend Yardımcı Fonksiyonlar
-"""
-
-import os
+import pandas as pd
 import logging
 import uuid
-import hashlib
-from datetime import datetime
-from typing import Optional, List, Dict, Any
-from fastapi import UploadFile, HTTPException
-import pandas as pd
-import json
+import aiofiles
 from pathlib import Path
-
+from fastapi import UploadFile
 from .config import settings
-
+from .models import AnalysisRequest
 
 def setup_logging():
-    """Logging sistemini kur"""
-    
-    # Log klasörünü oluştur
-    os.makedirs(settings.LOG_DIR, exist_ok=True)
-    
-    # Log formatı
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    
-    # Logging konfigürasyonu
     logging.basicConfig(
         level=getattr(logging, settings.LOG_LEVEL),
-        format=log_format,
-        handlers=[
-            logging.FileHandler(
-                os.path.join(settings.LOG_DIR, settings.LOG_FILE),
-                encoding='utf-8'
-            ),
-            logging.StreamHandler()
-        ]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler(settings.LOG_FILE), logging.StreamHandler()]
     )
 
-
-def validate_file_type(filename: str) -> bool:
-    """Dosya türünü doğrula"""
-    if not filename:
-        return False
-    
-    file_extension = Path(filename).suffix.lower()
-    return file_extension in settings.ALLOWED_FILE_TYPES
-
-
 def generate_file_id() -> str:
-    """Benzersiz dosya ID'si oluştur"""
     return str(uuid.uuid4())
 
-
-def get_file_hash(file_content: bytes) -> str:
-    """Dosya hash'i hesapla"""
-    return hashlib.md5(file_content).hexdigest()
-
-
-async def save_uploaded_file(file: UploadFile) -> str:
-    """Yüklenen dosyayı kaydet"""
-    
-    # Dosya boyutu kontrolü
-    file_content = await file.read()
-    if len(file_content) > settings.MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Dosya boyutu çok büyük. Maksimum {settings.MAX_FILE_SIZE // (1024*1024)}MB"
-        )
-    
-    # Dosya ID'si oluştur
-    file_id = generate_file_id()
-    
-    # Dosya uzantısını koru
-    file_extension = Path(file.filename).suffix
-    file_path = os.path.join(settings.UPLOAD_DIR, f"{file_id}{file_extension}")
-    
-    # Dosyayı kaydet
-    with open(file_path, "wb") as f:
-        f.write(file_content)
-    
-    return file_id
-
-
-def load_data_file(file_id: str) -> pd.DataFrame:
-    """Dosyayı pandas DataFrame olarak yükle"""
-    
-    # Dosya yolunu bul
+async def save_uploaded_file(file: UploadFile, file_id: str) -> str:
     upload_dir = Path(settings.UPLOAD_DIR)
-    file_path = None
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    file_path = upload_dir / f"{file_id}{Path(file.filename).suffix}"
+    async with aiofiles.open(file_path, 'wb') as f:
+        await f.write(await file.read())
+    return str(file_path)
+
+def load_data_file(file_path: str) -> pd.DataFrame:
+    if file_path.endswith('.csv'):
+        return pd.read_csv(file_path, encoding='utf-8', encoding_errors='replace')
+    elif file_path.endswith(('.xlsx', '.xls')):
+        return pd.read_excel(file_path)
+    raise ValueError("Desteklenmeyen dosya formatı.")
+
+def validate_analysis_parameters(request: AnalysisRequest, df: pd.DataFrame) -> dict:
+    """Analiz parametrelerini doğrula"""
+    params = request.parameters
     
-    for ext in settings.ALLOWED_FILE_TYPES:
-        potential_path = upload_dir / f"{file_id}{ext}"
-        if potential_path.exists():
-            file_path = potential_path
-            break
+    # Genel sütun kontrolü
+    if params.columns:
+        missing = [col for col in params.columns if col not in df.columns]
+        if missing:
+            return {'valid': False, 'error': f"Sütunlar bulunamadı: {missing}"}
     
-    if not file_path:
-        raise FileNotFoundError(f"Dosya bulunamadı: {file_id}")
+    # Hipotez testleri için özel validasyonlar
+    if request.analysis_type == "hypothesis" and params.test_type:
+        return validate_hypothesis_parameters(params, df)
     
-    # Dosya türüne göre yükle
-    file_extension = file_path.suffix.lower()
+    return {'valid': True}
+
+def validate_hypothesis_parameters(params, df: pd.DataFrame) -> dict:
+    """Hipotez testi parametrelerini doğrula"""
+    test_type = params.test_type
     
-    try:
-        if file_extension == '.csv':
-            # CSV dosyası için encoding tespiti
-            encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
-            for encoding in encodings:
-                try:
-                    df = pd.read_csv(file_path, encoding=encoding)
-                    break
-                except UnicodeDecodeError:
-                    continue
-            else:
-                raise ValueError("CSV dosyası okunamadı - encoding sorunu")
-                
-        elif file_extension in ['.xlsx', '.xls']:
-            df = pd.read_excel(file_path)
-            
-        elif file_extension == '.json':
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            df = pd.json_normalize(data)
-            
-        else:
-            raise ValueError(f"Desteklenmeyen dosya türü: {file_extension}")
+    # Paired t-test validasyonu
+    if test_type == "t_test_paired":
+        if not params.paired_col_1 or not params.paired_col_2:
+            return {'valid': False, 'error': "Paired t-test için iki sütun gerekli"}
         
-        return df
+        missing_cols = []
+        if params.paired_col_1 not in df.columns:
+            missing_cols.append(params.paired_col_1)
+        if params.paired_col_2 not in df.columns:
+            missing_cols.append(params.paired_col_2)
         
-    except Exception as e:
-        raise ValueError(f"Dosya yükleme hatası: {str(e)}")
-
-
-def get_data_info(df: pd.DataFrame) -> Dict[str, Any]:
-    """DataFrame hakkında bilgi al"""
-    
-    info = {
-        "shape": df.shape,
-        "columns": df.columns.tolist(),
-        "dtypes": df.dtypes.astype(str).to_dict(),
-        "memory_usage": df.memory_usage(deep=True).sum(),
-        "missing_values": df.isnull().sum().to_dict(),
-        "duplicate_rows": df.duplicated().sum(),
-        "numeric_columns": df.select_dtypes(include=['number']).columns.tolist(),
-        "categorical_columns": df.select_dtypes(include=['object', 'category']).columns.tolist(),
-        "datetime_columns": df.select_dtypes(include=['datetime']).columns.tolist()
-    }
-    
-    return info
-
-
-def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """Sütun isimlerini temizle"""
-    
-    # Boşlukları alt çizgi ile değiştir
-    df.columns = df.columns.str.replace(' ', '_')
-    
-    # Özel karakterleri kaldır
-    df.columns = df.columns.str.replace(r'[^\w]', '_', regex=True)
-    
-    # Büyük harfleri küçük harfe çevir
-    df.columns = df.columns.str.lower()
-    
-    # Başında ve sonunda alt çizgi varsa kaldır
-    df.columns = df.columns.str.strip('_')
-    
-    # Çift alt çizgileri tek alt çizgi yap
-    df.columns = df.columns.str.replace('__+', '_', regex=True)
-    
-    return df
-
-
-def detect_outliers(series: pd.Series, method: str = 'iqr') -> pd.Series:
-    """Aykırı değerleri tespit et"""
-    
-    if method == 'iqr':
-        Q1 = series.quantile(0.25)
-        Q3 = series.quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        return (series < lower_bound) | (series > upper_bound)
-    
-    elif method == 'zscore':
-        z_scores = abs((series - series.mean()) / series.std())
-        return z_scores > 3
-    
-    else:
-        return pd.Series([False] * len(series), index=series.index)
-
-
-def format_number(value: float, decimals: int = 4) -> str:
-    """Sayıyı formatla"""
-    if pd.isna(value):
-        return "N/A"
-    
-    if abs(value) < 0.001:
-        return f"{value:.2e}"
-    else:
-        return f"{value:.{decimals}f}"
-
-
-def generate_interpretation(analysis_type: str, results: Dict[str, Any]) -> List[str]:
-    """Analiz sonuçları için otomatik yorum oluştur"""
-    
-    interpretations = []
-    
-    if analysis_type == "descriptive":
-        # Betimsel istatistikler yorumu
-        for column, stats in results.get("descriptive_stats", {}).items():
-            if stats.get("std") and stats.get("mean"):
-                cv = stats["std"] / stats["mean"]
-                if cv > 0.3:
-                    interpretations.append(f"{column} değişkeni yüksek değişkenlik gösteriyor (CV: {cv:.2f})")
-                
-            if stats.get("skewness"):
-                if abs(stats["skewness"]) > 1:
-                    direction = "sağa" if stats["skewness"] > 0 else "sola"
-                    interpretations.append(f"{column} değişkeni {direction} çarpık dağılım gösteriyor")
-    
-    elif analysis_type == "hypothesis_test":
-        # Hipotez testi yorumu
-        test_result = results.get("statistical_test", {})
-        p_value = test_result.get("p_value")
-        alpha = 0.05
+        if missing_cols:
+            return {'valid': False, 'error': f"Sütunlar bulunamadı: {missing_cols}"}
         
-        if p_value is not None:
-            if p_value < alpha:
-                interpretations.append(f"H0 hipotezi reddedildi (p={p_value:.4f} < α={alpha})")
-                interpretations.append("Gruplar arasında istatistiksel olarak anlamlı fark vardır")
-            else:
-                interpretations.append(f"H0 hipotezi kabul edildi (p={p_value:.4f} ≥ α={alpha})")
-                interpretations.append("Gruplar arasında istatistiksel olarak anlamlı fark yoktur")
-    
-    elif analysis_type == "regression":
-        # Regresyon analizi yorumu
-        reg_results = results.get("regression", {})
-        r_squared = reg_results.get("r_squared")
+        # Sayısal veri kontrolü
+        if not pd.api.types.is_numeric_dtype(df[params.paired_col_1]):
+            return {'valid': False, 'error': f"'{params.paired_col_1}' sayısal bir sütun değil"}
+        if not pd.api.types.is_numeric_dtype(df[params.paired_col_2]):
+            return {'valid': False, 'error': f"'{params.paired_col_2}' sayısal bir sütun değil"}
         
-        if r_squared is not None:
-            if r_squared > 0.7:
-                interpretations.append(f"Model güçlü açıklayıcılığa sahip (R² = {r_squared:.3f})")
-            elif r_squared > 0.3:
-                interpretations.append(f"Model orta düzeyde açıklayıcılığa sahip (R² = {r_squared:.3f})")
-            else:
-                interpretations.append(f"Model zayıf açıklayıcılığa sahip (R² = {r_squared:.3f})")
+        # Minimum veri kontrolü
+        valid_pairs = df[[params.paired_col_1, params.paired_col_2]].dropna()
+        if len(valid_pairs) < 3:
+            return {'valid': False, 'error': "Paired t-test için en az 3 geçerli çift gerekli"}
     
-    return interpretations
-
-
-def create_visualization_path(analysis_id: str, plot_type: str) -> str:
-    """Görselleştirme dosya yolu oluştur"""
+    # One-way ANOVA validasyonu
+    elif test_type == "anova_one_way":
+        if not params.dependent_var:
+            return {'valid': False, 'error': "One-way ANOVA için bağımlı değişken gerekli"}
+        
+        if not params.independent_var:
+            return {'valid': False, 'error': "One-way ANOVA için bağımsız değişken gerekli"}
+        
+        # Sütunları kontrol et
+        missing_cols = []
+        if params.dependent_var not in df.columns:
+            missing_cols.append(params.dependent_var)
+        if params.independent_var not in df.columns:
+            missing_cols.append(params.independent_var)
+        
+        if missing_cols:
+            return {'valid': False, 'error': f"Sütunlar bulunamadı: {missing_cols}"}
+        
+        # Bağımlı değişken sayısal olmalı
+        if not pd.api.types.is_numeric_dtype(df[params.dependent_var]):
+            return {'valid': False, 'error': f"'{params.dependent_var}' sayısal bir sütun değil"}
+        
+        # Minimum veri kontrolü
+        valid_data = df[[params.dependent_var, params.independent_var]].dropna()
+        if len(valid_data) < 3:
+            return {'valid': False, 'error': "One-way ANOVA için en az 3 geçerli gözlem gerekli"}
+        
+        # Grup sayısı kontrolü
+        groups = valid_data[params.independent_var].nunique()
+        if groups < 2:
+            return {'valid': False, 'error': "One-way ANOVA için en az 2 grup gerekli"}
     
-    # Görselleştirme klasörünü oluştur
-    os.makedirs(settings.VISUALIZATION_DIR, exist_ok=True)
+    # MANOVA validasyonu
+    elif test_type == "manova":
+        if not params.dependent_columns or len(params.dependent_columns) < 2:
+            return {'valid': False, 'error': "MANOVA için en az 2 bağımlı değişken gerekli"}
+        
+        if not params.independent_formula:
+            return {'valid': False, 'error': "MANOVA için bağımsız değişken formülü gerekli"}
+        
+        # Bağımlı değişkenleri kontrol et
+        missing_deps = [col for col in params.dependent_columns if col not in df.columns]
+        if missing_deps:
+            return {'valid': False, 'error': f"Bağımlı değişkenler bulunamadı: {missing_deps}"}
+        
+        # Sayısal veri kontrolü
+        for col in params.dependent_columns:
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                return {'valid': False, 'error': f"'{col}' sayısal bir sütun değil"}
+        
+        # Bağımsız değişkenleri kontrol et
+        formula_vars = params.independent_formula.replace('+', ' ').replace('*', ' ').replace(':', ' ').split()
+        missing_indeps = [var.strip() for var in formula_vars if var.strip() and var.strip() not in df.columns]
+        if missing_indeps:
+            return {'valid': False, 'error': f"Bağımsız değişkenler bulunamadı: {missing_indeps}"}
+        
+        # Minimum veri kontrolü
+        all_vars = params.dependent_columns + [var.strip() for var in formula_vars if var.strip()]
+        valid_data = df[all_vars].dropna()
+        if len(valid_data) < 10:
+            return {'valid': False, 'error': "MANOVA için en az 10 geçerli gözlem gerekli"}
     
-    # Dosya yolu
-    filename = f"{analysis_id}_{plot_type}.{settings.PLOT_FORMAT}"
-    return os.path.join(settings.VISUALIZATION_DIR, filename)
-
-
-def cleanup_old_files(max_age_hours: int = 24):
-    """Eski dosyaları temizle"""
+    # Mixed ANOVA validasyonu
+    elif test_type == "mixed_anova":
+        required_params = ['dv_column', 'within_column', 'between_column', 'subject_column']
+        missing_params = [param for param in required_params if not getattr(params, param, None)]
+        if missing_params:
+            return {'valid': False, 'error': f"Mixed ANOVA için gerekli parametreler eksik: {missing_params}"}
+        
+        # Sütunları kontrol et
+        required_cols = [params.dv_column, params.within_column, params.between_column, params.subject_column]
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            return {'valid': False, 'error': f"Sütunlar bulunamadı: {missing_cols}"}
+        
+        # Bağımlı değişken sayısal olmalı
+        if not pd.api.types.is_numeric_dtype(df[params.dv_column]):
+            return {'valid': False, 'error': f"'{params.dv_column}' sayısal bir sütun değil"}
+        
+        # Minimum veri kontrolü
+        valid_data = df[[params.dv_column, params.within_column, params.between_column, params.subject_column]].dropna()
+        if len(valid_data) < 4:
+            return {'valid': False, 'error': "Mixed ANOVA için en az 4 geçerli gözlem gerekli"}
     
-    current_time = datetime.now()
+    # Wilcoxon signed-rank test validasyonu
+    elif test_type == "wilcoxon_signed_rank":
+        if not params.paired_col_1 or not params.paired_col_2:
+            return {'valid': False, 'error': "Wilcoxon signed-rank test için iki sütun gerekli"}
+        
+        missing_cols = []
+        if params.paired_col_1 not in df.columns:
+            missing_cols.append(params.paired_col_1)
+        if params.paired_col_2 not in df.columns:
+            missing_cols.append(params.paired_col_2)
+        
+        if missing_cols:
+            return {'valid': False, 'error': f"Sütunlar bulunamadı: {missing_cols}"}
+        
+        # Sayısal veri kontrolü
+        if not pd.api.types.is_numeric_dtype(df[params.paired_col_1]):
+            return {'valid': False, 'error': f"'{params.paired_col_1}' sayısal bir sütun değil"}
+        if not pd.api.types.is_numeric_dtype(df[params.paired_col_2]):
+            return {'valid': False, 'error': f"'{params.paired_col_2}' sayısal bir sütun değil"}
+        
+        # Minimum veri kontrolü
+        valid_pairs = df[[params.paired_col_1, params.paired_col_2]].dropna()
+        if len(valid_pairs) < 3:
+            return {'valid': False, 'error': "Wilcoxon signed-rank test için en az 3 geçerli çift gerekli"}
     
-    # Upload klasörünü temizle
-    for file_path in Path(settings.UPLOAD_DIR).glob("*"):
-        if file_path.is_file():
-            file_age = current_time - datetime.fromtimestamp(file_path.stat().st_mtime)
-            if file_age.total_seconds() > max_age_hours * 3600:
-                file_path.unlink()
-    
-    # Görselleştirme klasörünü temizle
-    for file_path in Path(settings.VISUALIZATION_DIR).glob("*"):
-        if file_path.is_file():
-            file_age = current_time - datetime.fromtimestamp(file_path.stat().st_mtime)
-            if file_age.total_seconds() > max_age_hours * 3600:
-                file_path.unlink()
-
-
-def validate_analysis_parameters(analysis_type: str, parameters: Dict[str, Any], df: pd.DataFrame) -> Dict[str, Any]:
-    """Analiz parametrelerini doğrula ve düzelt"""
-    
-    validated_params = parameters.copy()
-    
-    # Sütun kontrolü
-    if "columns" in validated_params:
-        valid_columns = [col for col in validated_params["columns"] if col in df.columns]
-        validated_params["columns"] = valid_columns
-    
-    # Hedef sütun kontrolü
-    if "target_column" in validated_params:
-        if validated_params["target_column"] not in df.columns:
-            validated_params["target_column"] = None
-    
-    # Grup sütunu kontrolü
-    if "group_column" in validated_params:
-        if validated_params["group_column"] not in df.columns:
-            validated_params["group_column"] = None
-    
-    return validated_params
+    return {'valid': True}

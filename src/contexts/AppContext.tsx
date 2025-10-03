@@ -295,6 +295,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   };
 
   const setAnalysisResults = (results: AnalysisResult) => {
+    console.log('setAnalysisResults - called with:', results);
     dispatch({ type: 'SET_ANALYSIS_RESULTS', payload: results });
     
     // Add to history
@@ -308,6 +309,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: 'ADD_TO_HISTORY', payload: historyItem });
     
     showNotification('success', 'Analiz Tamamlandı', 'Analiz sonuçları hazır', 5000);
+    console.log('setAnalysisResults - completed, state should be updated');
   };
 
   const addToHistory = (history: AnalysisHistory) => {
@@ -406,43 +408,120 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   // API functions
   const performAnalysis = async (analysisType: string, data: any[]): Promise<AnalysisResult> => {
+    console.log('performAnalysis - starting with:', { analysisType, dataLength: data?.length });
+    console.log('performAnalysis - state.uploadedData:', state.uploadedData);
+    console.log('performAnalysis - data parameter:', data);
     setLoading(true);
     
     try {
-      // Simulate API call - replace with actual API endpoint
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!state.uploadedData) {
+        throw new Error('Yüklenmiş veri bulunamadı');
+      }
+
+      // Veriyi temizle ve doğrula
+      const rawData = state.uploadedData.parsedData || data;
       
-      // Mock analysis result
+      // Veri doğrulama
+      if (!Array.isArray(rawData) || rawData.length === 0) {
+        throw new Error('Geçerli veri bulunamadı');
+      }
+      
+      // Veriyi temizle - undefined, null değerleri kaldır ve string'leri düzelt
+      const cleanedData = rawData.map(row => {
+        const cleanedRow: any = {};
+        for (const [key, value] of Object.entries(row || {})) {
+          if (key && key.trim() !== '') {
+            // Değeri temizle
+            if (value === null || value === undefined || value === '') {
+              cleanedRow[key] = null;
+            } else if (typeof value === 'string') {
+              cleanedRow[key] = value.trim();
+            } else {
+              cleanedRow[key] = value;
+            }
+          }
+        }
+        return cleanedRow;
+      }).filter(row => Object.keys(row).length > 0);
+      
+      console.log('performAnalysis - cleaned data sample:', JSON.stringify(cleanedData.slice(0, 2), null, 2));
+      
+      // Prepare analysis request for direct API call
+      const analysisRequest = {
+        data: cleanedData,
+        analysis_type: analysisType,
+        clean_data: true,
+        cleaning_options: {
+          remove_duplicates: true,
+          handle_missing: 'drop',
+          remove_outliers: false,
+          normalize_data: false
+        },
+        confidence_level: 0.95
+      };
+
+      // Make direct API call to /analyze endpoint
+      console.log('performAnalysis - sending request:', analysisRequest);
+      console.log('performAnalysis - request data sample:', JSON.stringify(analysisRequest.data?.slice(0, 3), null, 2));
+      const response = await fetch('http://localhost:8000/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(analysisRequest)
+      });
+
+      console.log('performAnalysis - response status:', response.status);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('performAnalysis - API error:', errorData);
+        console.error('performAnalysis - Full error response:', JSON.stringify(errorData, null, 2));
+        
+        // Hata detaylarını daha iyi işle
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        if (errorData.detail) {
+          if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail;
+          } else if (typeof errorData.detail === 'object') {
+            errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
+          }
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const apiResponse = await response.json();
+      console.log('performAnalysis - API response received:', !!apiResponse);
+      console.log('performAnalysis - API response data:', !!apiResponse.data);
+
+      // Create result object from API response
       const result: AnalysisResult = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        id: apiResponse.file_id || 'unknown',
         type: analysisType,
         fileName: state.uploadedData?.fileName || 'unknown',
-        data: data.slice(0, 100), // Sample data
-        summary: {
-          totalRows: data.length,
-          totalColumns: Object.keys(data[0] || {}).length,
-          analysisType,
-          completedAt: new Date().toISOString()
+        data: apiResponse.data || {},
+        summary: apiResponse.data?.summary || {
+          dataset_info: {
+            total_rows: data.length,
+            total_columns: state.uploadedData?.columns?.length || 0,
+            analysis_type: analysisType
+          },
+          key_findings: [],
+          data_quality: {}
         },
-        statistics: {
-          mean: '45.67',
-          stdDev: '12.34',
-          min: '10.00',
-          max: '89.50',
-          count: data.length
-        },
-        charts: [
-          { type: 'bar', data: data.slice(0, 10) },
-          { type: 'line', data: data.slice(0, 15) }
-        ],
-        timestamp: new Date()
+        statistics: apiResponse.data?.descriptive_stats || null,
+        charts: apiResponse.data?.visualizations || null,
+        timestamp: new Date(apiResponse.timestamp) || new Date()
       };
       
+      console.log('performAnalysis - result created with data keys:', Object.keys(result.data || {}));
       setAnalysisResults(result);
+      console.log('performAnalysis - setAnalysisResults called, returning result');
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Analiz sırasında bir hata oluştu';
       setError(errorMessage);
+      showNotification('error', 'Analiz Hatası', errorMessage, 5000);
       throw error;
     } finally {
       setLoading(false);

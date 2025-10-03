@@ -5,8 +5,8 @@ Bu modül çeşitli regresyon analizi türlerini gerçekleştirmek için kullan�
 Linear, logistic, polynomial ve diğer regresyon türlerini destekler.
 """
 
-from .analyzer import RegressionAnalyzer
+from .analyzer import ComprehensiveRegressionAnalyzer
 from .advanced_regression import AdvancedRegressionAnalyzer
 
-__all__ = ['RegressionAnalyzer', 'AdvancedRegressionAnalyzer']
+__all__ = ['ComprehensiveRegressionAnalyzer', 'AdvancedRegressionAnalyzer']
 __version__ = "1.0.0"

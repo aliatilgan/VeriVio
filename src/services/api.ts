@@ -1,7 +1,7 @@
 // API Service for VeriVio
 import { AnalysisResult, UploadedData } from '@/contexts/AppContext';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // API Response types
 interface ApiResponse<T> {
@@ -81,7 +81,10 @@ class ApiService {
       }
 
       const result = await response.json();
-      return result;
+      return {
+        success: true,
+        data: result
+      };
     } catch (error) {
       return {
         success: false,
@@ -92,7 +95,7 @@ class ApiService {
 
   // Start analysis
   async startAnalysis(request: AnalysisRequest): Promise<ApiResponse<{ analysisId: string }>> {
-    return this.request<{ analysisId: string }>('/analysis/start', {
+    return this.request<{ analysisId: string }>('/analyze', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -100,12 +103,12 @@ class ApiService {
 
   // Get analysis progress
   async getAnalysisProgress(analysisId: string): Promise<ApiResponse<AnalysisProgress>> {
-    return this.request<AnalysisProgress>(`/analysis/progress/${analysisId}`);
+    return this.request<AnalysisProgress>(`/results/${analysisId}`);
   }
 
   // Get analysis results
   async getAnalysisResults(analysisId: string): Promise<ApiResponse<AnalysisResult>> {
-    return this.request<AnalysisResult>(`/analysis/results/${analysisId}`);
+    return this.request<AnalysisResult>(`/results/${analysisId}`);
   }
 
   // Get available analysis types

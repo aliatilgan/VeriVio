@@ -1,277 +1,212 @@
-"""
-VeriVio Backend - Ana FastAPI Uygulaması
-Modüler veri analizi sistemi için REST API
-"""
-
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, FileResponse
-import uvicorn
-import os
+from fastapi.responses import JSONResponse
+import pandas as pd
 import logging
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-import json
-
-# Konfigürasyon ve yardımcı modüller
+from typing import Dict, Any
 from .config import settings
-from .models import AnalysisRequest, AnalysisResponse, ErrorResponse
-from .utils import setup_logging, validate_file_type, save_uploaded_file
-
-# Analiz modülleri
-from modules.data_processing.cleaner import DataCleaner
+from .models import AnalysisRequest, AnalysisResponse, FileUploadResponse, ErrorResponse
+from .utils import setup_logging, save_uploaded_file, load_data_file, generate_file_id, validate_analysis_parameters
 from modules.descriptive_stats.calculator import DescriptiveStatsCalculator
+from modules.data_processing.cleaner import DataCleaner
 from modules.visualization.plotter import DataPlotter
-from modules.hypothesis_tests.tester import HypothesisTester
-from modules.regression.analyzer import RegressionAnalyzer
 
-# Domain-specific modüller
-from modules.domain_specific.finance import FinanceAnalyzer
-from modules.domain_specific.marketing import MarketingAnalyzer
-from modules.domain_specific.healthcare import HealthcareAnalyzer
-
-# Logging kurulumu
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# FastAPI uygulaması
 app = FastAPI(
-    title="VeriVio Analytics API",
-    description="Modüler veri analizi ve görselleştirme sistemi",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    title=settings.API_TITLE,
+    description=settings.API_DESCRIPTION,
+    version=settings.API_VERSION,
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # React frontend
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:8081"],  # Vite ve React portları
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Statik dosyalar
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Global değişkenler
-uploaded_files = {}  # Geçici dosya depolama
-analysis_results = {}  # Analiz sonuçları cache
-
+uploaded_files: Dict[str, pd.DataFrame] = {}
 
 @app.get("/")
 async def root():
-    """Ana endpoint - API durumu"""
-    return {
-        "message": "VeriVio Analytics API",
-        "version": "1.0.0",
-        "status": "active",
-        "timestamp": datetime.now().isoformat()
-    }
+    return {"message": "VeriVio API is running", "status": "healthy"}
 
-
-@app.get("/health")
-async def health_check():
-    """Sağlık kontrolü endpoint'i"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "modules": {
-            "data_processing": True,
-            "descriptive_stats": True,
-            "visualization": True,
-            "hypothesis_tests": True,
-            "regression": True
-        }
-    }
-
-
-@app.post("/upload")
-async def upload_file(
-    file: UploadFile = File(...),
-    file_type: str = Form(default="auto")
-):
-    """
-    Dosya yükleme endpoint'i
-    Desteklenen formatlar: CSV, Excel, JSON
-    """
+@app.post("/upload", response_model=FileUploadResponse)
+async def upload_file(file: UploadFile = File(...)):
     try:
-        # Dosya türü validasyonu
-        if not validate_file_type(file.filename):
-            raise HTTPException(
-                status_code=400,
-                detail="Desteklenmeyen dosya türü. CSV, Excel veya JSON dosyası yükleyin."
-            )
+        if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
+            raise HTTPException(400, detail="Desteklenmeyen dosya formatı: CSV, XLSX veya XLS bekleniyor.")
         
-        # Dosyayı kaydet
-        file_id = save_uploaded_file(file)
+        file_id = generate_file_id()
+        file_path = await save_uploaded_file(file, file_id)
+        df = load_data_file(file_path)
         
-        # Dosya bilgilerini sakla
-        uploaded_files[file_id] = {
-            "filename": file.filename,
-            "file_type": file_type,
-            "upload_time": datetime.now().isoformat(),
-            "size": file.size
-        }
+        uploaded_files[file_id] = df
+        logger.info(f"Dosya yüklendi: {file.filename}, ID: {file_id}")
         
-        logger.info(f"Dosya yüklendi: {file.filename} (ID: {file_id})")
-        
-        return {
-            "file_id": file_id,
-            "filename": file.filename,
-            "message": "Dosya başarıyla yüklendi",
-            "status": "success"
-        }
-        
-    except Exception as e:
-        logger.error(f"Dosya yükleme hatası: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Dosya yükleme hatası: {str(e)}")
-
-
-@app.post("/analyze")
-async def analyze_data(request: AnalysisRequest):
-    """
-    Ana analiz endpoint'i
-    Seçilen analiz türüne göre veri analizi yapar
-    """
-    try:
-        # Dosya kontrolü
-        if request.file_id not in uploaded_files:
-            raise HTTPException(status_code=404, detail="Dosya bulunamadı")
-        
-        # Analiz türüne göre işlem
-        result = await perform_analysis(request)
-        
-        # Sonucu cache'le
-        analysis_id = f"{request.file_id}_{request.analysis_type}_{datetime.now().timestamp()}"
-        analysis_results[analysis_id] = result
-        
-        logger.info(f"Analiz tamamlandı: {request.analysis_type} (ID: {analysis_id})")
-        
-        return AnalysisResponse(
-            analysis_id=analysis_id,
-            status="success",
-            results=result,
-            timestamp=datetime.now().isoformat()
+        return FileUploadResponse(
+            file_id=file_id,
+            filename=file.filename,
+            size=len(df),
+            columns=list(df.columns),
+            data_info={"rows": len(df), "columns": len(df.columns)},
+            message="Dosya başarıyla yüklendi."
         )
+    except Exception as e:
+        logger.error(f"Yükleme hatası: {str(e)}")
+        raise HTTPException(500, detail=f"Dosya yükleme hatası: {str(e)}")
+
+@app.post("/analyze", response_model=AnalysisResponse)
+async def analyze_data(request: AnalysisRequest):
+    try:
+        # Handle both file_id and direct data requests
+        if request.data is not None:
+            # Direct data request
+            df = pd.DataFrame(request.data)
+            file_id = "direct_data"
+        elif request.file_id and request.file_id in uploaded_files:
+            # File ID request
+            df = uploaded_files[request.file_id]
+            file_id = request.file_id
+        else:
+            raise HTTPException(400, detail="Either 'data' or valid 'file_id' must be provided.")
         
+        validation = validate_analysis_parameters(request, df)
+        if not validation['valid']:
+            raise HTTPException(400, detail=validation['error'])
+        
+        result = await perform_analysis(df, request)
+        response_data = AnalysisResponse(
+            analysis_type=request.analysis_type,
+            file_id=file_id,
+            timestamp=datetime.now(),
+            data=result,
+            success=True,
+            message="Analiz başarıyla tamamlandı."
+        )
+        # Convert to dict and handle datetime serialization
+        response_dict = response_data.dict()
+        response_dict['timestamp'] = response_data.timestamp.isoformat()
+        
+        return JSONResponse(content=response_dict)
     except Exception as e:
         logger.error(f"Analiz hatası: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Analiz hatası: {str(e)}")
-
-
-@app.get("/results/{analysis_id}")
-async def get_results(analysis_id: str):
-    """Analiz sonuçlarını getir"""
-    if analysis_id not in analysis_results:
-        raise HTTPException(status_code=404, detail="Analiz sonucu bulunamadı")
-    
-    return analysis_results[analysis_id]
-
-
-@app.get("/visualizations/{analysis_id}")
-async def get_visualization(analysis_id: str):
-    """Görselleştirme dosyasını getir"""
-    try:
-        # Görselleştirme dosyası yolu
-        viz_path = f"static/visualizations/{analysis_id}.png"
-        
-        if not os.path.exists(viz_path):
-            raise HTTPException(status_code=404, detail="Görselleştirme bulunamadı")
-        
-        return FileResponse(viz_path, media_type="image/png")
-        
-    except Exception as e:
-        logger.error(f"Görselleştirme hatası: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Görselleştirme hatası: {str(e)}")
-
-
-async def perform_analysis(request: AnalysisRequest) -> Dict[str, Any]:
-    """Analiz türüne göre uygun modülü çağır"""
-    
-    # Veri yükleme ve temizleme
-    cleaner = DataCleaner()
-    data = cleaner.load_data(request.file_id)
-    
-    if request.clean_data:
-        data = cleaner.clean_data(data, request.cleaning_options or {})
-    
-    # Analiz türüne göre işlem
-    if request.analysis_type == "descriptive":
-        calculator = DescriptiveStatsCalculator()
-        return calculator.calculate(data, request.parameters or {})
-    
-    elif request.analysis_type == "visualization":
-        plotter = DataPlotter()
-        return plotter.create_plot(data, request.parameters or {})
-    
-    elif request.analysis_type == "hypothesis_test":
-        tester = HypothesisTester()
-        return tester.run_test(data, request.parameters or {})
-    
-    elif request.analysis_type == "regression":
-        analyzer = RegressionAnalyzer()
-        return analyzer.analyze(data, request.parameters or {})
-    
-    elif request.analysis_type == "finance":
-        analyzer = FinanceAnalyzer()
-        return analyzer.get_finance_summary(data, request.parameters or {})
-    
-    elif request.analysis_type == "marketing":
-        analyzer = MarketingAnalyzer()
-        return analyzer.get_marketing_summary(data, request.parameters or {})
-    
-    elif request.analysis_type == "healthcare":
-        analyzer = HealthcareAnalyzer()
-        return analyzer.get_healthcare_summary(data, request.parameters or {})
-    
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Desteklenmeyen analiz türü: {request.analysis_type}"
+        error_response = ErrorResponse(error=str(e), timestamp=datetime.now())
+        error_dict = error_response.dict()
+        error_dict['timestamp'] = error_response.timestamp.isoformat()
+        return JSONResponse(
+            status_code=500,
+            content=error_dict
         )
 
-
-@app.delete("/files/{file_id}")
-async def delete_file(file_id: str):
-    """Yüklenen dosyayı sil"""
-    try:
-        if file_id not in uploaded_files:
-            raise HTTPException(status_code=404, detail="Dosya bulunamadı")
+async def perform_analysis(df: pd.DataFrame, request: AnalysisRequest) -> Dict[str, Any]:
+    analysis_type = request.analysis_type
+    params = request.parameters
+    
+    if analysis_type == "descriptive":
+        calc = DescriptiveStatsCalculator(df)
+        columns = params.columns if params.columns else df.columns.tolist()
+        return calc.calculate(columns)
+    elif analysis_type == "cleaning":
+        cleaner = DataCleaner(df)
+        strategy = params.missing_strategy if params.missing_strategy else 'mean'
+        return cleaner.clean(strategy)
+    elif analysis_type == "visualization":
+        plotter = DataPlotter()
+        columns = params.columns if params.columns else df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+        return plotter.create_histogram(df, columns)
+    elif analysis_type == "hypothesis":
+        # Kapsamlı hipotez testleri
+        from modules.hypothesis_testing.tester import ComprehensiveHypothesisTester
         
-        # Dosyayı sil
-        file_path = f"uploads/{file_id}"
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        tester = ComprehensiveHypothesisTester(df)
         
-        # Cache'den kaldır
-        del uploaded_files[file_id]
+        # AnalysisParameters nesnesini dictionary'ye çevir
+        params_dict = {
+            'test_type': params.test_type,
+            'paired_col_1': params.paired_col_1,
+            'paired_col_2': params.paired_col_2,
+            'dependent_columns': params.dependent_columns,
+            'independent_formula': params.independent_formula,
+            'subject_column': params.subject_column,
+            'within_column': params.within_column,
+            'between_column': params.between_column,
+            'dv_column': params.dv_column,
+            'alpha': params.alpha or 0.05,
+            'alternative': params.alternative or 'two-sided',
+            'columns': params.columns
+        }
         
-        logger.info(f"Dosya silindi: {file_id}")
+        # None değerleri temizle
+        params_dict = {k: v for k, v in params_dict.items() if v is not None}
         
-        return {"message": "Dosya başarıyla silindi", "status": "success"}
-        
-    except Exception as e:
-        logger.error(f"Dosya silme hatası: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Dosya silme hatası: {str(e)}")
-
-
-@app.get("/files")
-async def list_files():
-    """Yüklenen dosyaları listele"""
-    return {
-        "files": uploaded_files,
-        "count": len(uploaded_files)
-    }
-
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+        return tester.run_comprehensive_test(df, params_dict)
+    elif analysis_type == "regression":
+        # Basit linear regression
+        from sklearn.linear_model import LinearRegression
+        from sklearn.metrics import r2_score
+        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+        if len(numeric_cols) >= 2:
+            X = df[numeric_cols[:-1]].dropna()
+            y = df[numeric_cols[-1]].dropna()
+            # Ortak indeksleri al
+            common_idx = X.index.intersection(y.index)
+            X = X.loc[common_idx]
+            y = y.loc[common_idx]
+            
+            if len(X) > 1:
+                model = LinearRegression()
+                model.fit(X, y)
+                y_pred = model.predict(X)
+                r2 = r2_score(y, y_pred)
+                
+                return {
+                    "regression_results": {
+                        "target_variable": numeric_cols[-1],
+                        "features": numeric_cols[:-1],
+                        "r2_score": float(r2),
+                        "coefficients": {col: float(coef) for col, coef in zip(numeric_cols[:-1], model.coef_)},
+                        "intercept": float(model.intercept_),
+                        "interpretation": f"Model açıklama gücü: %{r2*100:.1f}"
+                    }
+                }
+        return {"error": "Regresyon için yeterli sayısal veri bulunamadı"}
+    elif analysis_type == "advanced":
+        # Basit korelasyon analizi
+        numeric_df = df.select_dtypes(include=['float64', 'int64'])
+        if len(numeric_df.columns) >= 2:
+            correlation_matrix = numeric_df.corr()
+            return {
+                "advanced_analysis": {
+                    "correlation_matrix": correlation_matrix.to_dict(),
+                    "strong_correlations": [
+                        {"variables": f"{col1} - {col2}", "correlation": float(corr)}
+                        for col1 in correlation_matrix.columns
+                        for col2 in correlation_matrix.columns
+                        if col1 != col2 and abs(correlation_matrix.loc[col1, col2]) > 0.7
+                    ][:5],  # İlk 5 güçlü korelasyon
+                    "message": "Korelasyon analizi tamamlandı"
+                }
+            }
+        return {"error": "Gelişmiş analiz için yeterli sayısal veri bulunamadı"}
+    elif analysis_type == "domain":
+        # Basit domain analizi - veri özeti
+        return {
+            "domain_analysis": {
+                "data_summary": {
+                    "total_rows": len(df),
+                    "total_columns": len(df.columns),
+                    "numeric_columns": len(df.select_dtypes(include=['float64', 'int64']).columns),
+                    "categorical_columns": len(df.select_dtypes(include=['object']).columns),
+                    "missing_values": df.isnull().sum().sum(),
+                    "data_types": df.dtypes.astype(str).to_dict()
+                },
+                "message": "Domain analizi tamamlandı"
+            }
+        }
+    else:
+        raise ValueError(f"Desteklenmeyen analiz türü: {analysis_type}")

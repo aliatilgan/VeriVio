@@ -130,11 +130,11 @@ const AnalysisSelection = ({ onAnalysisSelected, selectedAnalysis }: AnalysisSel
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
           {t('analysisSelection.description')}
         </p>
-        {state.uploadedData && (
+        {state.uploadedData && state.uploadedData.parsedData && state.uploadedData.columns && (
           <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <CheckCircle className="h-4 w-4 text-green-500" />
             {t('analysisSelection.dataReady', { 
-              rows: state.uploadedData.data.length,
+              rows: state.uploadedData.parsedData.length,
               columns: state.uploadedData.columns.length 
             })}
           </div>

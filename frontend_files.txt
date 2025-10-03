@@ -1,0 +1,211 @@
+# VeriVio Frontend Files Documentation
+# Generated on: $(Get-Date)
+# Total Frontend Files: 70+ files
+
+## Project Configuration Files
+- package.json - Project dependencies and scripts
+- package-lock.json - Dependency lock file
+- tsconfig.json - TypeScript configuration
+- tsconfig.app.json - App-specific TypeScript config
+- tsconfig.node.json - Node-specific TypeScript config
+- vite.config.ts - Vite build tool configuration
+- tailwind.config.ts - Tailwind CSS configuration
+- postcss.config.js - PostCSS configuration
+- eslint.config.js - ESLint configuration
+- components.json - UI components configuration
+- index.html - Main HTML template
+
+## Main Application Files
+
+### Core Application
+- src/main.tsx - React application entry point, renders App component
+- src/App.tsx - Main app component with routing, providers, and layout
+- src/App.css - Basic application styles and animations
+- src/index.css - Design system with Tailwind CSS, color variables, themes
+- src/vite-env.d.ts - Vite TypeScript definitions
+
+### Pages (src/pages/)
+- Index.tsx - Main landing page with data upload and analysis selection
+- Analyses.tsx - Analysis results and data management page
+- Documentation.tsx - User guides and documentation
+- Support.tsx - Support page with contact form and FAQs
+- NotFound.tsx - 404 error page
+
+### Core Components (src/components/)
+- Header.tsx - Navigation header with theme/language toggles
+- Hero.tsx - Landing page hero section with feature highlights
+- DataUpload.tsx - File upload component with drag-drop, CSV/Excel/JSON support
+- AnalysisSelection.tsx - Analysis type selection with categories and difficulty levels
+- AnalysisResults.tsx - Display analysis results with charts and statistics
+- ResultsPanel.tsx - Comprehensive results display with export options
+- UserGuide.tsx - Interactive user guide and tutorial system
+- ThemeToggle.tsx - Dark/light/system theme switcher
+- LanguageToggle.tsx - Turkish/English language switcher
+- NotificationSystem.tsx - Toast notifications and alerts
+- PerformanceMonitor.tsx - Performance monitoring and metrics
+- ResponsiveLayout.tsx - Responsive design utilities and containers
+
+### UI Components (src/components/ui/) - 50+ Shadcn/UI Components
+- accordion.tsx - Collapsible content sections
+- alert-dialog.tsx - Modal dialogs for confirmations
+- alert.tsx - Alert messages and notifications
+- aspect-ratio.tsx - Aspect ratio containers
+- avatar.tsx - User avatar components
+- badge.tsx - Status badges and labels
+- breadcrumb.tsx - Navigation breadcrumbs
+- button.tsx - Button components with variants
+- calendar.tsx - Date picker calendar
+- card.tsx - Card containers with header/content
+- carousel.tsx - Image/content carousels
+- chart.tsx - Chart components for data visualization
+- checkbox.tsx - Checkbox input components
+- collapsible.tsx - Collapsible content areas
+- command.tsx - Command palette interface
+- context-menu.tsx - Right-click context menus
+- dialog.tsx - Modal dialog components
+- drawer.tsx - Slide-out drawer panels
+- dropdown-menu.tsx - Dropdown menu components
+- form.tsx - Form components and validation
+- hover-card.tsx - Hover-triggered cards
+- input-otp.tsx - OTP input fields
+- input.tsx - Text input components
+- label.tsx - Form labels
+- language-toggle.tsx - Language selection component
+- menubar.tsx - Menu bar navigation
+- navigation-menu.tsx - Navigation menu components
+- pagination.tsx - Pagination controls
+- popover.tsx - Popover components
+- progress.tsx - Progress bars and indicators
+- radio-group.tsx - Radio button groups
+- resizable.tsx - Resizable panels
+- scroll-area.tsx - Custom scrollable areas
+- select.tsx - Select dropdown components
+- separator.tsx - Visual separators
+- sheet.tsx - Side sheet panels
+- sidebar.tsx - Sidebar navigation
+- skeleton.tsx - Loading skeleton components
+- slider.tsx - Range slider inputs
+- sonner.tsx - Toast notification system
+- switch.tsx - Toggle switch components
+- table.tsx - Data table components
+- tabs.tsx - Tab navigation components
+- textarea.tsx - Multi-line text inputs
+- theme-toggle.tsx - Theme switching component
+- toast.tsx - Toast notification components
+- toaster.tsx - Toast container
+- toggle-group.tsx - Toggle button groups
+- toggle.tsx - Toggle buttons
+- tooltip.tsx - Tooltip components
+- use-toast.ts - Toast hook utilities
+
+### Context Management (src/contexts/)
+- AppContext.tsx - Global application state management
+  * UploadedData interface for file data
+  * NotificationState for notifications
+  * UserPreferences for settings
+  * AnalysisResult and AnalysisHistory
+  * State management with useReducer
+- ThemeContext.tsx - Theme management (light/dark/system)
+
+### Custom Hooks (src/hooks/)
+- use-mobile.tsx - Mobile device detection hook
+- use-toast.ts - Toast notification management
+- usePerformance.ts - Performance monitoring hooks
+  * useVirtualScroll for large lists
+  * useDebounce for input debouncing
+  * useMemoryMonitor for memory usage
+  * usePerformanceTiming for timing metrics
+
+### Services (src/services/)
+- api.ts - API service for backend communication
+  * File upload functionality
+  * Analysis request handling
+  * Progress monitoring
+  * Result retrieval
+  * Error handling
+
+### Internationalization (src/i18n/)
+- index.ts - i18next configuration with Turkish/English translations
+  * Header navigation translations
+  * Hero section content
+  * Data upload messages
+  * Analysis selection categories
+  * Form labels and validation messages
+  * Error messages and notifications
+
+### Utilities (src/lib/)
+- utils.ts - Utility functions (clsx and tailwind-merge)
+
+## Key Features Implemented
+
+### Data Management
+- File upload with drag-drop support
+- CSV, Excel, JSON format support
+- Data validation and error handling
+- File size limits (50MB)
+- Data preview functionality
+
+### Analysis Categories
+- Descriptive Statistics
+- Data Visualization
+- Hypothesis Testing
+- Regression Analysis
+- Advanced Analysis (ML, clustering)
+- Domain-specific applications
+
+### User Interface
+- Responsive design for all devices
+- Dark/light theme support
+- Turkish/English localization
+- Modern UI with Tailwind CSS
+- Smooth animations with Framer Motion
+- Comprehensive component library
+
+### Performance & Monitoring
+- Virtual scrolling for large datasets
+- Memory usage monitoring
+- Performance timing metrics
+- FPS monitoring
+- Network information tracking
+
+### User Experience
+- Interactive tutorials and guides
+- Toast notifications
+- Progress indicators
+- Error handling and validation
+- Accessibility features
+
+## Technology Stack
+- React 18 with TypeScript
+- Vite for build tooling
+- Tailwind CSS for styling
+- Shadcn/UI component library
+- Framer Motion for animations
+- React Router for navigation
+- React Query for data fetching
+- i18next for internationalization
+- Recharts for data visualization
+- Papa Parse for CSV parsing
+- XLSX for Excel file handling
+
+## File Statistics
+- Total TypeScript/TSX files: 70+
+- Main components: 12
+- UI components: 50+
+- Pages: 5
+- Contexts: 2
+- Hooks: 3
+- Services: 1
+- Configuration files: 10+
+
+## Architecture Summary
+The frontend follows a modern React architecture with:
+- Component-based design with reusable UI components
+- Context-based state management
+- Custom hooks for shared logic
+- Service layer for API communication
+- Internationalization support
+- Responsive design patterns
+- Performance optimization techniques
+- Comprehensive error handling
+- Type safety with TypeScript

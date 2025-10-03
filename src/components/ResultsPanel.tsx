@@ -20,6 +20,10 @@ interface ResultsPanelProps {
 }
 
 const ResultsPanel = ({ results, fileName }: ResultsPanelProps) => {
+  // Debug logs - keep minimal
+  console.log('ResultsPanel - received results:', !!results);
+  console.log('ResultsPanel - data keys:', results?.data ? Object.keys(results.data) : 'no data');
+  
   const { toast } = useToast();
   const { t } = useTranslation();
   const { state } = useApp();
@@ -35,15 +39,17 @@ const ResultsPanel = ({ results, fileName }: ResultsPanelProps) => {
     
     return results.data.slice(0, 20).map((row: any, idx: number) => {
       const processedRow: any = { index: idx + 1 };
-      Object.entries(row).forEach(([key, value]) => {
-        if (typeof value === 'number') {
-          processedRow[key] = value;
-        } else if (typeof value === 'string' && !isNaN(Number(value))) {
-          processedRow[key] = Number(value);
-        } else {
-          processedRow[key] = value;
-        }
-      });
+      if (row && typeof row === 'object') {
+        Object.entries(row).forEach(([key, value]) => {
+          if (typeof value === 'number') {
+            processedRow[key] = value;
+          } else if (typeof value === 'string' && !isNaN(Number(value))) {
+            processedRow[key] = Number(value);
+          } else {
+            processedRow[key] = value;
+          }
+        });
+      }
       return processedRow;
     });
   }, [results?.data]);
@@ -52,6 +58,7 @@ const ResultsPanel = ({ results, fileName }: ResultsPanelProps) => {
   const numericColumns = useMemo(() => {
     if (!results?.data || results.data.length === 0) return [];
     const firstRow = results.data[0];
+    if (!firstRow || typeof firstRow !== 'object') return [];
     return Object.keys(firstRow).filter(key => {
       const value = firstRow[key];
       return typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)));
@@ -63,7 +70,7 @@ const ResultsPanel = ({ results, fileName }: ResultsPanelProps) => {
     if (!results?.data || !searchTerm) return results?.data || [];
     
     return results.data.filter((row: any) =>
-      Object.values(row).some(value =>
+      row && typeof row === 'object' && Object.values(row).some(value =>
         String(value).toLowerCase().includes(searchTerm.toLowerCase())
       )
     );
@@ -87,7 +94,7 @@ const ResultsPanel = ({ results, fileName }: ResultsPanelProps) => {
     
     return {
       count: results.data.length,
-      columns: Object.keys(results.data[0]).length,
+      columns: results.data[0] && typeof results.data[0] === 'object' ? Object.keys(results.data[0]).length : 0,
       mean: mean.toFixed(2),
       stdDev: stdDev.toFixed(2),
       min: Math.min(...firstColumnData).toFixed(2),
@@ -860,7 +867,7 @@ const ResultsPanel = ({ results, fileName }: ResultsPanelProps) => {
                           <th className="px-4 py-3 text-left font-medium text-foreground border-b border-border">
                             #
                           </th>
-                          {results?.data && results.data.length > 0 && Object.keys(results.data[0]).map((key) => (
+                          {results?.data && results.data.length > 0 && results.data[0] && typeof results.data[0] === 'object' && Object.keys(results.data[0]).map((key) => (
                             <th key={key} className="px-4 py-3 text-left font-medium text-foreground border-b border-border">
                               <div className="flex items-center gap-2">
                                 {key}
@@ -878,7 +885,7 @@ const ResultsPanel = ({ results, fileName }: ResultsPanelProps) => {
                             <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
                               {idx + 1}
                             </td>
-                            {Object.values(row).map((val: any, i) => (
+                            {row && typeof row === 'object' ? Object.values(row).map((val: any, i) => (
                               <td key={i} className="px-4 py-3 text-muted-foreground">
                                 {val === null || val === undefined || val === '' ? (
                                   <span className="text-muted-foreground/50 italic">
@@ -888,7 +895,7 @@ const ResultsPanel = ({ results, fileName }: ResultsPanelProps) => {
                                   String(val)
                                 )}
                               </td>
-                            ))}
+                            )) : null}
                           </tr>
                         ))}
                       </tbody>

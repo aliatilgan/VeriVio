@@ -119,7 +119,9 @@ const DataUpload = ({ onDataUploaded }: DataUploadProps) => {
               rowCount: parsedData.length
             };
             
+            console.log('DataUpload - CSV parsed, calling setUploadedData with:', uploadedData);
             setUploadedData(uploadedData);
+            console.log('DataUpload - calling onDataUploaded callback with:', uploadedData);
             onDataUploaded?.(uploadedData);
             
             setIsProcessing(false);

@@ -10,7 +10,7 @@ from scipy import stats
 from scipy.stats import (
     bartlett, fligner, anderson, jarque_bera, normaltest,
     pearsonr, spearmanr, kendalltau, fisher_exact,
-    mcnemar, cochran, friedmanchisquare
+    friedmanchisquare
 )
 from statsmodels.stats.diagnostic import lilliefors
 from statsmodels.stats.contingency_tables import mcnemar as mcnemar_test

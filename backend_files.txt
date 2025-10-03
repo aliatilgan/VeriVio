@@ -1,0 +1,1552 @@
+VeriVio Backend Dosyaları
+========================
+
+Bu dosya VeriVio projesinin tüm backend dosyalarını içerir.
+
+=== ROOT DOSYALARI ===
+
+--- requirements.txt ---
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pandas==2.1.3
+numpy==1.25.2
+scipy==1.11.4
+scikit-learn==1.3.2
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.17.0
+statsmodels==0.14.0
+pingouin==0.5.4
+lifelines==0.27.8
+xgboost==2.0.2
+prophet==1.1.5
+python-multipart==0.0.6
+aiofiles==23.2.1
+openpyxl==3.1.2
+xlrd==2.0.1
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+--- test_api.py ---
+"""
+VeriVio Backend API Test Script
+Comprehensive testing for all endpoints and analysis modules
+"""
+
+import requests
+import json
+import pandas as pd
+import numpy as np
+from io import StringIO
+import time
+import os
+from typing import Dict, Any
+
+# Test configuration
+BASE_URL = "http://localhost:8000"
+TEST_DATA_DIR = "test_data"
+
+class VeriVioAPITester:
+    """VeriVio API test sınıfı"""
+    
+    def __init__(self, base_url: str = BASE_URL):
+        self.base_url = base_url
+        self.session = requests.Session()
+        self.test_results = {}
+        
+    def create_test_data(self) -> pd.DataFrame:
+        """Test verisi oluştur"""
+        np.random.seed(42)
+        n_samples = 100
+        
+        data = {
+            'age': np.random.normal(35, 10, n_samples),
+            'income': np.random.normal(50000, 15000, n_samples),
+            'education_years': np.random.normal(16, 3, n_samples),
+            'experience': np.random.normal(10, 5, n_samples),
+            'satisfaction': np.random.choice(['Low', 'Medium', 'High'], n_samples),
+            'department': np.random.choice(['IT', 'HR', 'Finance', 'Marketing'], n_samples),
+            'performance_score': np.random.normal(75, 15, n_samples)
+        }
+        
+        return pd.DataFrame(data)
+    
+    def test_health_check(self) -> Dict[str, Any]:
+        """Health check endpoint testi"""
+        try:
+            response = self.session.get(f"{self.base_url}/health")
+            return {
+                'status_code': response.status_code,
+                'response': response.json() if response.status_code == 200 else response.text,
+                'success': response.status_code == 200
+            }
+        except Exception as e:
+            return {'error': str(e), 'success': False}
+    
+    def test_file_upload(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """File upload endpoint testi"""
+        try:
+            # CSV string oluştur
+            csv_string = df.to_csv(index=False)
+            
+            # Multipart form data hazırla
+            files = {
+                'file': ('test_data.csv', csv_string, 'text/csv')
+            }
+            
+            response = self.session.post(f"{self.base_url}/upload", files=files)
+            
+            return {
+                'status_code': response.status_code,
+                'response': response.json() if response.status_code == 200 else response.text,
+                'success': response.status_code == 200
+            }
+        except Exception as e:
+            return {'error': str(e), 'success': False}
+    
+    def test_descriptive_analysis(self, file_id: str) -> Dict[str, Any]:
+        """Descriptive analysis endpoint testi"""
+        try:
+            payload = {
+                'file_id': file_id,
+                'analysis_type': 'descriptive',
+                'parameters': {
+                    'columns': ['age', 'income', 'education_years'],
+                    'include_advanced': True
+                }
+            }
+            
+            response = self.session.post(f"{self.base_url}/analyze", json=payload)
+            
+            return {
+                'status_code': response.status_code,
+                'response': response.json() if response.status_code == 200 else response.text,
+                'success': response.status_code == 200
+            }
+        except Exception as e:
+            return {'error': str(e), 'success': False}
+    
+    def test_visualization(self, file_id: str) -> Dict[str, Any]:
+        """Visualization endpoint testi"""
+        try:
+            payload = {
+                'file_id': file_id,
+                'analysis_type': 'visualization',
+                'parameters': {
+                    'visualization_type': 'histogram',
+                    'columns': ['age', 'income']
+                }
+            }
+            
+            response = self.session.post(f"{self.base_url}/analyze", json=payload)
+            
+            return {
+                'status_code': response.status_code,
+                'response': response.json() if response.status_code == 200 else response.text,
+                'success': response.status_code == 200
+            }
+        except Exception as e:
+            return {'error': str(e), 'success': False}
+    
+    def test_hypothesis_testing(self, file_id: str) -> Dict[str, Any]:
+        """Hypothesis testing endpoint testi"""
+        try:
+            payload = {
+                'file_id': file_id,
+                'analysis_type': 'hypothesis',
+                'parameters': {
+                    'test_type': 't_test_one_sample',
+                    'column': 'age',
+                    'test_value': 35,
+                    'alpha': 0.05
+                }
+            }
+            
+            response = self.session.post(f"{self.base_url}/analyze", json=payload)
+            
+            return {
+                'status_code': response.status_code,
+                'response': response.json() if response.status_code == 200 else response.text,
+                'success': response.status_code == 200
+            }
+        except Exception as e:
+            return {'error': str(e), 'success': False}
+    
+    def test_regression_analysis(self, file_id: str) -> Dict[str, Any]:
+        """Regression analysis endpoint testi"""
+        try:
+            payload = {
+                'file_id': file_id,
+                'analysis_type': 'regression',
+                'parameters': {
+                    'target_column': 'performance_score',
+                    'feature_columns': ['age', 'income', 'education_years'],
+                    'regression_type': 'linear'
+                }
+            }
+            
+            response = self.session.post(f"{self.base_url}/analyze", json=payload)
+            
+            return {
+                'status_code': response.status_code,
+                'response': response.json() if response.status_code == 200 else response.text,
+                'success': response.status_code == 200
+            }
+        except Exception as e:
+            return {'error': str(e), 'success': False}
+    
+    def run_comprehensive_test(self) -> Dict[str, Any]:
+        """Kapsamlı test paketi çalıştır"""
+        print("VeriVio API Comprehensive Test Suite")
+        print("=" * 50)
+        
+        # Test verisi oluştur
+        test_df = self.create_test_data()
+        print(f"Test verisi oluşturuldu: {len(test_df)} satır, {len(test_df.columns)} sütun")
+        
+        # Health check
+        print("\n1. Health Check Test...")
+        health_result = self.test_health_check()
+        print(f"   Status: {'PASS' if health_result['success'] else 'FAIL'}")
+        if not health_result['success']:
+            print(f"   Error: {health_result}")
+            return {'error': 'Health check failed', 'results': {}}
+        
+        # File upload
+        print("\n2. File Upload Test...")
+        upload_result = self.test_file_upload(test_df)
+        print(f"   Status: {'PASS' if upload_result['success'] else 'FAIL'}")
+        if not upload_result['success']:
+            print(f"   Error: {upload_result}")
+            return {'error': 'File upload failed', 'results': {'health_check': health_result}}
+        
+        file_id = upload_result['response']['file_id']
+        print(f"   File ID: {file_id}")
+        
+        # Analysis tests
+        tests = [
+            ("Descriptive Analysis", self.test_descriptive_analysis),
+            ("Visualization", self.test_visualization),
+            ("Hypothesis Testing", self.test_hypothesis_testing),
+            ("Regression Analysis", self.test_regression_analysis)
+        ]
+        
+        results = {
+            'health_check': health_result,
+            'file_upload': upload_result
+        }
+        
+        for i, (test_name, test_func) in enumerate(tests, 3):
+            print(f"\n{i}. {test_name} Test...")
+            test_result = test_func(file_id)
+            print(f"   Status: {'PASS' if test_result['success'] else 'FAIL'}")
+            if not test_result['success']:
+                print(f"   Error: {test_result.get('error', 'Unknown error')}")
+            results[test_name.lower().replace(' ', '_')] = test_result
+        
+        # Summary
+        passed_tests = sum(1 for result in results.values() if result.get('success', False))
+        total_tests = len(results)
+        
+        print(f"\n{'='*50}")
+        print(f"Test Summary: {passed_tests}/{total_tests} tests passed")
+        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        
+        return {
+            'summary': {
+                'total_tests': total_tests,
+                'passed_tests': passed_tests,
+                'success_rate': (passed_tests/total_tests)*100
+            },
+            'results': results
+        }
+
+if __name__ == "__main__":
+    tester = VeriVioAPITester()
+    results = tester.run_comprehensive_test()
+    
+    # Sonuçları dosyaya kaydet
+    with open('test_results.json', 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    
+    print(f"\nDetailed results saved to: test_results.json")
+
+=== APP KLASÖRÜ ===
+
+--- app/main.py ---
+"""
+VeriVio Backend Main Application
+FastAPI tabanlı veri analizi API'si
+"""
+
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import pandas as pd
+import numpy as np
+import json
+import logging
+import traceback
+from typing import Dict, Any, List, Optional
+import uuid
+import os
+from datetime import datetime
+
+# Local imports
+from .config import settings
+from .models import (
+    AnalysisRequest, AnalysisResponse, ErrorResponse, 
+    HealthCheckResponse, FileUploadResponse, FileListResponse
+)
+from .utils import (
+    setup_logging, save_uploaded_file, load_data_file, 
+    get_data_info, clean_column_names, generate_file_id,
+    validate_analysis_parameters, log_analysis_operation
+)
+
+# Analysis modules
+from modules.descriptive_stats.calculator import DescriptiveStatsCalculator
+from modules.data_processing.cleaner import DataCleaner
+from modules.visualization.plotter import DataPlotter
+from modules.hypothesis_testing.tester import ComprehensiveHypothesisTester
+from modules.regression.analyzer import ComprehensiveRegressionAnalyzer
+from modules.advanced_analysis.analyzer import AdvancedAnalyzer
+from modules.factor_clustering.analyzer import FactorClusteringAnalyzer
+
+# Setup logging
+setup_logging()
+logger = logging.getLogger(__name__)
+
+# FastAPI app
+app = FastAPI(
+    title=settings.API_TITLE,
+    description=settings.API_DESCRIPTION,
+    version=settings.API_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global storage for uploaded files (in production, use database)
+uploaded_files: Dict[str, Dict[str, Any]] = {}
+
+# Custom JSON encoder for numpy types
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, pd.Timestamp):
+            return obj.isoformat()
+        return super().default(obj)
+
+@app.get("/", response_model=Dict[str, str])
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "VeriVio Backend API",
+        "version": settings.API_VERSION,
+        "status": "running",
+        "docs": "/docs"
+    }
+
+@app.get("/health", response_model=HealthCheckResponse)
+async def health_check():
+    """Health check endpoint"""
+    try:
+        return HealthCheckResponse(
+            status="healthy",
+            timestamp=datetime.now(),
+            version=settings.API_VERSION,
+            uptime="running"
+        )
+    except Exception as e:
+        logger.error(f"Health check error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Health check failed")
+
+@app.post("/upload", response_model=FileUploadResponse)
+async def upload_file(file: UploadFile = File(...)):
+    """File upload endpoint"""
+    try:
+        # Validate file
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file provided")
+        
+        # Check file extension
+        allowed_extensions = ['.csv', '.xlsx', '.xls']
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        
+        if file_extension not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+            )
+        
+        # Generate file ID
+        file_id = generate_file_id()
+        
+        # Save file
+        file_path = await save_uploaded_file(file, file_id)
+        
+        # Load and analyze data
+        df = load_data_file(file_path)
+        
+        # Clean column names
+        df = clean_column_names(df)
+        
+        # Get data info
+        data_info = get_data_info(df)
+        
+        # Store file info
+        uploaded_files[file_id] = {
+            'filename': file.filename,
+            'file_path': file_path,
+            'upload_time': datetime.now(),
+            'data_info': data_info,
+            'dataframe': df  # In production, store in database
+        }
+        
+        logger.info(f"File uploaded successfully: {file.filename} (ID: {file_id})")
+        
+        return FileUploadResponse(
+            file_id=file_id,
+            filename=file.filename,
+            size=len(df),
+            columns=list(df.columns),
+            data_info=data_info,
+            message="File uploaded and processed successfully"
+        )
+        
+    except Exception as e:
+        logger.error(f"File upload error: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+
+@app.get("/files", response_model=FileListResponse)
+async def list_files():
+    """List uploaded files"""
+    try:
+        files_info = []
+        for file_id, info in uploaded_files.items():
+            files_info.append({
+                'file_id': file_id,
+                'filename': info['filename'],
+                'upload_time': info['upload_time'],
+                'size': info['data_info']['shape'][0],
+                'columns': len(info['data_info']['columns'])
+            })
+        
+        return FileListResponse(files=files_info)
+        
+    except Exception as e:
+        logger.error(f"List files error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to list files")
+
+@app.post("/analyze", response_model=AnalysisResponse)
+async def analyze_data(request: AnalysisRequest):
+    """Main analysis endpoint"""
+    try:
+        # Validate file ID
+        if request.file_id not in uploaded_files:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Get data
+        file_info = uploaded_files[request.file_id]
+        df = file_info['dataframe']
+        
+        # Validate parameters
+        validation_result = validate_analysis_parameters(request, df)
+        if not validation_result['valid']:
+            raise HTTPException(status_code=400, detail=validation_result['error'])
+        
+        # Log analysis operation
+        log_analysis_operation(request.analysis_type, request.file_id, request.parameters)
+        
+        # Perform analysis based on type
+        analysis_result = await perform_analysis(df, request)
+        
+        # Prepare response
+        response = AnalysisResponse(
+            analysis_type=request.analysis_type,
+            file_id=request.file_id,
+            timestamp=datetime.now(),
+            data=analysis_result,
+            success=True,
+            message="Analysis completed successfully"
+        )
+        
+        # Convert to dict and use custom encoder
+        response_dict = response.dict()
+        
+        # Return JSON response with custom encoder
+        return JSONResponse(
+            content=json.loads(json.dumps(response_dict, cls=NumpyEncoder))
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Analysis error: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        error_response = ErrorResponse(
+            error=str(e),
+            timestamp=datetime.now(),
+            analysis_type=request.analysis_type if 'request' in locals() else "unknown"
+        )
+        
+        return JSONResponse(
+            status_code=500,
+            content=error_response.dict()
+        )
+
+async def perform_analysis(df: pd.DataFrame, request: AnalysisRequest) -> Dict[str, Any]:
+    """Perform the requested analysis"""
+    
+    analysis_type = request.analysis_type
+    params = request.parameters
+    
+    try:
+        if analysis_type == "descriptive":
+            calculator = DescriptiveStatsCalculator(df)
+            return calculator.calculate_comprehensive_stats(
+                columns=params.get('columns'),
+                include_advanced=params.get('include_advanced', True)
+            )
+        
+        elif analysis_type == "cleaning":
+            cleaner = DataCleaner(df)
+            return cleaner.comprehensive_clean(
+                missing_strategy=params.get('missing_strategy', 'smart'),
+                outlier_strategy=params.get('outlier_strategy', 'iqr'),
+                remove_duplicates=params.get('remove_duplicates', True)
+            )
+        
+        elif analysis_type == "visualization":
+            plotter = DataPlotter()
+            return plotter.create_plot(df, params)
+        
+        elif analysis_type == "hypothesis":
+            tester = ComprehensiveHypothesisTester(df)
+            return tester.run_comprehensive_test(df, params)
+        
+        elif analysis_type == "regression":
+            analyzer = ComprehensiveRegressionAnalyzer(df)
+            
+            if params.get('regression_type') == 'linear':
+                return analyzer.linear_regression(
+                    target=params.get('target_column'),
+                    features=params.get('feature_columns', []),
+                    test_size=params.get('test_size', 0.2)
+                )
+            elif params.get('regression_type') == 'logistic':
+                return analyzer.logistic_regression(
+                    target=params.get('target_column'),
+                    features=params.get('feature_columns', []),
+                    test_size=params.get('test_size', 0.2)
+                )
+        
+        elif analysis_type == "advanced":
+            analyzer = AdvancedAnalyzer(df)
+            
+            if params.get('advanced_type') == 'machine_learning':
+                return analyzer.machine_learning_analysis(
+                    target_column=params.get('target_column'),
+                    feature_columns=params.get('feature_columns', []),
+                    problem_type=params.get('problem_type', 'auto')
+                )
+        
+        elif analysis_type == "clustering":
+            analyzer = FactorClusteringAnalyzer(df)
+            
+            if params.get('clustering_type') == 'kmeans':
+                return analyzer.kmeans_clustering(
+                    columns=params.get('columns', []),
+                    n_clusters=params.get('n_clusters'),
+                    standardize=params.get('standardize', True)
+                )
+        
+        else:
+            raise ValueError(f"Unsupported analysis type: {analysis_type}")
+            
+    except Exception as e:
+        logger.error(f"Analysis execution error: {str(e)}")
+        raise
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+        log_level="info"
+    )
+
+--- app/config.py ---
+"""
+VeriVio Backend Configuration
+Application settings and environment variables
+"""
+
+from pydantic_settings import BaseSettings
+from typing import List, Optional
+import os
+from pathlib import Path
+
+class Settings(BaseSettings):
+    """Application settings"""
+    
+    # API Information
+    API_TITLE: str = "VeriVio Backend API"
+    API_DESCRIPTION: str = "Comprehensive Data Analysis and Visualization API"
+    API_VERSION: str = "1.0.0"
+    
+    # Server Configuration
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    DEBUG: bool = True
+    
+    # CORS Settings
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:8081"
+    ]
+    
+    # File Upload Settings
+    UPLOAD_DIR: str = "uploads"
+    MAX_FILE_SIZE: int = 100 * 1024 * 1024  # 100MB
+    ALLOWED_EXTENSIONS: List[str] = [".csv", ".xlsx", ".xls"]
+    
+    # Logging Configuration
+    LOG_LEVEL: str = "INFO"
+    LOG_FILE: str = "logs/verivio.log"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    
+    # Cache Settings
+    CACHE_TTL: int = 3600  # 1 hour
+    CACHE_SIZE: int = 1000
+    
+    # Analysis Settings
+    DEFAULT_SAMPLE_SIZE: int = 10000
+    MAX_COLUMNS: int = 100
+    MAX_ROWS: int = 1000000
+    
+    # Statistical Settings
+    DEFAULT_ALPHA: float = 0.05
+    DEFAULT_CONFIDENCE_LEVEL: float = 0.95
+    
+    # Visualization Settings
+    DEFAULT_FIGURE_SIZE: tuple = (12, 8)
+    DEFAULT_DPI: int = 300
+    MAX_PLOT_POINTS: int = 10000
+    
+    # Database Settings (for future use)
+    DATABASE_URL: Optional[str] = None
+    
+    # Security Settings
+    SECRET_KEY: str = "your-secret-key-here"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+# Create settings instance
+settings = Settings()
+
+# Create necessary directories
+def create_directories():
+    """Create necessary directories if they don't exist"""
+    directories = [
+        settings.UPLOAD_DIR,
+        "logs",
+        "cache",
+        "exports"
+    ]
+    
+    for directory in directories:
+        Path(directory).mkdir(parents=True, exist_ok=True)
+
+# Initialize directories
+create_directories()
+
+--- app/models.py ---
+"""
+VeriVio Backend Pydantic Models
+Data validation and serialization models
+"""
+
+from pydantic import BaseModel, Field, validator
+from typing import Dict, List, Optional, Any, Union
+from datetime import datetime
+from enum import Enum
+
+# Enums for validation
+class AnalysisType(str, Enum):
+    DESCRIPTIVE = "descriptive"
+    CLEANING = "cleaning"
+    VISUALIZATION = "visualization"
+    HYPOTHESIS = "hypothesis"
+    REGRESSION = "regression"
+    CLUSTERING = "clustering"
+    FACTOR_ANALYSIS = "factor_analysis"
+    ADVANCED = "advanced"
+    TIME_SERIES = "time_series"
+    MACHINE_LEARNING = "machine_learning"
+    DOMAIN_SPECIFIC = "domain_specific"
+
+class VisualizationType(str, Enum):
+    HISTOGRAM = "histogram"
+    SCATTER = "scatter"
+    BOX = "box"
+    VIOLIN = "violin"
+    HEATMAP = "heatmap"
+    CORRELATION = "correlation"
+    DISTRIBUTION = "distribution"
+    COMPREHENSIVE = "comprehensive"
+
+class HypothesisTestType(str, Enum):
+    T_TEST_ONE_SAMPLE = "t_test_one_sample"
+    T_TEST_TWO_SAMPLE = "t_test_two_sample"
+    ANOVA_ONE_WAY = "anova_one_way"
+    CHI_SQUARE = "chi_square"
+    CORRELATION = "correlation"
+    KRUSKAL_WALLIS = "kruskal_wallis"
+    MANN_WHITNEY = "mann_whitney"
+
+class RegressionType(str, Enum):
+    LINEAR = "linear"
+    LOGISTIC = "logistic"
+    POLYNOMIAL = "polynomial"
+    RIDGE = "ridge"
+    LASSO = "lasso"
+    ELASTIC_NET = "elastic_net"
+    RANDOM_FOREST = "random_forest"
+    GRADIENT_BOOSTING = "gradient_boosting"
+
+class ClusteringType(str, Enum):
+    KMEANS = "kmeans"
+    HIERARCHICAL = "hierarchical"
+    DBSCAN = "dbscan"
+    SPECTRAL = "spectral"
+
+class FactorAnalysisType(str, Enum):
+    PCA = "pca"
+    FACTOR_ANALYSIS = "factor_analysis"
+    EXPLORATORY = "exploratory"
+    CONFIRMATORY = "confirmatory"
+
+class MachineLearningType(str, Enum):
+    CLASSIFICATION = "classification"
+    REGRESSION = "regression"
+    ENSEMBLE = "ensemble"
+    NEURAL_NETWORK = "neural_network"
+
+class TimeSeriesType(str, Enum):
+    DECOMPOSITION = "decomposition"
+    ARIMA = "arima"
+    PROPHET = "prophet"
+    STATIONARITY = "stationarity"
+
+class DomainSpecificType(str, Enum):
+    FINANCE = "finance"
+    HEALTHCARE = "healthcare"
+    EDUCATION = "education"
+    MARKETING = "marketing"
+    ENGINEERING = "engineering"
+    SOCIAL_SCIENCES = "social_sciences"
+    ENVIRONMENTAL = "environmental"
+
+# Request Models
+class FileUploadResponse(BaseModel):
+    file_id: str
+    filename: str
+    size: int
+    columns: List[str]
+    data_info: Dict[str, Any]
+    message: str
+
+class CleaningOptions(BaseModel):
+    missing_strategy: str = Field(default="smart", description="Missing value handling strategy")
+    outlier_strategy: str = Field(default="iqr", description="Outlier detection strategy")
+    remove_duplicates: bool = Field(default=True, description="Remove duplicate rows")
+    standardize_columns: bool = Field(default=True, description="Standardize column names")
+
+class AnalysisParameters(BaseModel):
+    # Common parameters
+    columns: Optional[List[str]] = Field(default=None, description="Columns to analyze")
+    alpha: Optional[float] = Field(default=0.05, description="Significance level")
+    
+    # Descriptive analysis
+    include_advanced: Optional[bool] = Field(default=True, description="Include advanced statistics")
+    
+    # Visualization
+    visualization_type: Optional[VisualizationType] = Field(default=None, description="Type of visualization")
+    
+    # Hypothesis testing
+    test_type: Optional[HypothesisTestType] = Field(default=None, description="Type of hypothesis test")
+    test_value: Optional[float] = Field(default=None, description="Test value for one-sample tests")
+    alternative: Optional[str] = Field(default="two-sided", description="Alternative hypothesis")
+    group_column: Optional[str] = Field(default=None, description="Grouping variable")
+    
+    # Regression
+    regression_type: Optional[RegressionType] = Field(default=None, description="Type of regression")
+    target_column: Optional[str] = Field(default=None, description="Target variable")
+    feature_columns: Optional[List[str]] = Field(default=None, description="Feature variables")
+    test_size: Optional[float] = Field(default=0.2, description="Test set proportion")
+    
+    # Clustering
+    clustering_type: Optional[ClusteringType] = Field(default=None, description="Type of clustering")
+    n_clusters: Optional[int] = Field(default=None, description="Number of clusters")
+    standardize: Optional[bool] = Field(default=True, description="Standardize features")
+    
+    # Factor Analysis
+    factor_type: Optional[FactorAnalysisType] = Field(default=None, description="Type of factor analysis")
+    n_factors: Optional[int] = Field(default=None, description="Number of factors")
+    
+    # Machine Learning
+    ml_type: Optional[MachineLearningType] = Field(default=None, description="Type of ML analysis")
+    problem_type: Optional[str] = Field(default="auto", description="Problem type (classification/regression)")
+    
+    # Time Series
+    ts_type: Optional[TimeSeriesType] = Field(default=None, description="Type of time series analysis")
+    date_column: Optional[str] = Field(default=None, description="Date column")
+    
+    # Domain Specific
+    domain_type: Optional[DomainSpecificType] = Field(default=None, description="Domain-specific analysis type")
+    
+    # Advanced parameters
+    advanced_type: Optional[str] = Field(default=None, description="Advanced analysis type")
+    
+    # Cleaning
+    cleaning_options: Optional[CleaningOptions] = Field(default=None, description="Data cleaning options")
+
+class AnalysisRequest(BaseModel):
+    file_id: str = Field(..., description="Uploaded file identifier")
+    analysis_type: AnalysisType = Field(..., description="Type of analysis to perform")
+    parameters: AnalysisParameters = Field(default_factory=AnalysisParameters, description="Analysis parameters")
+
+# Response Models
+class StatisticalResult(BaseModel):
+    statistic: Optional[float] = None
+    p_value: Optional[float] = None
+    confidence_interval: Optional[List[float]] = None
+    interpretation: Optional[str] = None
+
+class DescriptiveStatistics(BaseModel):
+    count: Optional[float] = None
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    min: Optional[float] = None
+    q25: Optional[float] = None
+    median: Optional[float] = None
+    q75: Optional[float] = None
+    max: Optional[float] = None
+    skewness: Optional[float] = None
+    kurtosis: Optional[float] = None
+    variance: Optional[float] = None
+    range: Optional[float] = None
+    iqr: Optional[float] = None
+    cv: Optional[float] = None
+
+class RegressionResults(BaseModel):
+    model_type: str
+    r_squared: Optional[float] = None
+    adjusted_r_squared: Optional[float] = None
+    coefficients: Optional[Dict[str, float]] = None
+    p_values: Optional[Dict[str, float]] = None
+    confidence_intervals: Optional[Dict[str, List[float]]] = None
+    residual_analysis: Optional[Dict[str, Any]] = None
+
+class ClusteringResults(BaseModel):
+    clustering_type: str
+    n_clusters: int
+    cluster_labels: Optional[List[int]] = None
+    cluster_centers: Optional[List[List[float]]] = None
+    silhouette_score: Optional[float] = None
+    inertia: Optional[float] = None
+
+class FactorAnalysisResults(BaseModel):
+    analysis_type: str
+    n_factors: int
+    explained_variance: Optional[List[float]] = None
+    factor_loadings: Optional[Dict[str, List[float]]] = None
+    eigenvalues: Optional[List[float]] = None
+
+class MachineLearningResults(BaseModel):
+    model_type: str
+    problem_type: str
+    accuracy: Optional[float] = None
+    precision: Optional[float] = None
+    recall: Optional[float] = None
+    f1_score: Optional[float] = None
+    r2_score: Optional[float] = None
+    feature_importance: Optional[Dict[str, float]] = None
+
+class TimeSeriesResults(BaseModel):
+    analysis_type: str
+    trend: Optional[Dict[str, Any]] = None
+    seasonality: Optional[Dict[str, Any]] = None
+    residuals: Optional[Dict[str, Any]] = None
+    forecast: Optional[Dict[str, Any]] = None
+
+class DomainSpecificResults(BaseModel):
+    domain_type: str
+    analysis_results: Dict[str, Any]
+    recommendations: Optional[List[str]] = None
+
+class VisualizationResults(BaseModel):
+    plot_type: str
+    plots: Dict[str, str]  # Base64 encoded images
+    success: bool
+    message: Optional[str] = None
+
+class AnalysisResults(BaseModel):
+    # Core results that can contain any of the above
+    descriptive_stats: Optional[Dict[str, DescriptiveStatistics]] = None
+    statistical_tests: Optional[Dict[str, StatisticalResult]] = None
+    regression_results: Optional[RegressionResults] = None
+    clustering_results: Optional[ClusteringResults] = None
+    factor_analysis_results: Optional[FactorAnalysisResults] = None
+    machine_learning_results: Optional[MachineLearningResults] = None
+    time_series_results: Optional[TimeSeriesResults] = None
+    domain_specific_results: Optional[DomainSpecificResults] = None
+    visualization_results: Optional[VisualizationResults] = None
+    
+    # Additional metadata
+    data_info: Optional[Dict[str, Any]] = None
+    processing_info: Optional[Dict[str, Any]] = None
+
+class AnalysisResponse(BaseModel):
+    analysis_type: str
+    file_id: str
+    timestamp: datetime
+    data: Dict[str, Any]  # Flexible container for any analysis results
+    success: bool
+    message: str
+
+class ErrorResponse(BaseModel):
+    error: str
+    timestamp: datetime
+    analysis_type: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+
+class HealthCheckResponse(BaseModel):
+    status: str
+    timestamp: datetime
+    version: str
+    uptime: str
+
+class FileInfo(BaseModel):
+    file_id: str
+    filename: str
+    upload_time: datetime
+    size: int
+    columns: int
+
+class FileListResponse(BaseModel):
+    files: List[FileInfo]
+
+--- app/utils.py ---
+"""
+VeriVio Backend Utility Functions
+Common helper functions for file handling, logging, and data processing
+"""
+
+import pandas as pd
+import numpy as np
+import logging
+import os
+import uuid
+import json
+import aiofiles
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Tuple, Union
+from datetime import datetime
+import re
+from fastapi import UploadFile
+from .config import settings
+from .models import AnalysisRequest
+
+def setup_logging():
+    """Setup application logging"""
+    # Create logs directory if it doesn't exist
+    log_dir = Path(settings.LOG_FILE).parent
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Configure logging
+    logging.basicConfig(
+        level=getattr(logging, settings.LOG_LEVEL),
+        format=settings.LOG_FORMAT,
+        handlers=[
+            logging.FileHandler(settings.LOG_FILE, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    
+    # Set specific loggers
+    logging.getLogger("uvicorn").setLevel(logging.INFO)
+    logging.getLogger("fastapi").setLevel(logging.INFO)
+
+def generate_file_id() -> str:
+    """Generate unique file ID"""
+    return str(uuid.uuid4())
+
+async def save_uploaded_file(file: UploadFile, file_id: str) -> str:
+    """Save uploaded file to disk"""
+    # Create upload directory if it doesn't exist
+    upload_dir = Path(settings.UPLOAD_DIR)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate file path
+    file_extension = os.path.splitext(file.filename)[1]
+    file_path = upload_dir / f"{file_id}{file_extension}"
+    
+    # Save file
+    async with aiofiles.open(file_path, 'wb') as f:
+        content = await file.read()
+        await f.write(content)
+    
+    return str(file_path)
+
+def load_data_file(file_path: str) -> pd.DataFrame:
+    """Load data file into pandas DataFrame"""
+    file_extension = os.path.splitext(file_path)[1].lower()
+    
+    try:
+        if file_extension == '.csv':
+            # Try different encodings
+            encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+            for encoding in encodings:
+                try:
+                    df = pd.read_csv(file_path, encoding=encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                raise ValueError("Could not decode CSV file with any supported encoding")
+                
+        elif file_extension in ['.xlsx', '.xls']:
+            df = pd.read_excel(file_path)
+        else:
+            raise ValueError(f"Unsupported file format: {file_extension}")
+        
+        # Basic validation
+        if df.empty:
+            raise ValueError("File is empty")
+        
+        if len(df.columns) == 0:
+            raise ValueError("No columns found in file")
+        
+        return df
+        
+    except Exception as e:
+        raise ValueError(f"Error loading file: {str(e)}")
+
+def get_data_info(df: pd.DataFrame) -> Dict[str, Any]:
+    """Get comprehensive information about the dataset"""
+    try:
+        # Basic info
+        info = {
+            'shape': df.shape,
+            'columns': list(df.columns),
+            'dtypes': df.dtypes.astype(str).to_dict(),
+            'memory_usage': df.memory_usage(deep=True).sum(),
+            'missing_values': df.isnull().sum().to_dict(),
+            'missing_percentage': (df.isnull().sum() / len(df) * 100).to_dict()
+        }
+        
+        # Column types
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+        categorical_columns = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        datetime_columns = df.select_dtypes(include=['datetime64']).columns.tolist()
+        
+        info['column_types'] = {
+            'numeric': numeric_columns,
+            'categorical': categorical_columns,
+            'datetime': datetime_columns
+        }
+        
+        # Basic statistics for numeric columns
+        if numeric_columns:
+            numeric_stats = df[numeric_columns].describe().to_dict()
+            info['numeric_summary'] = numeric_stats
+        
+        # Categorical column info
+        if categorical_columns:
+            categorical_info = {}
+            for col in categorical_columns:
+                categorical_info[col] = {
+                    'unique_count': df[col].nunique(),
+                    'unique_values': df[col].unique()[:10].tolist(),  # First 10 unique values
+                    'value_counts': df[col].value_counts().head(10).to_dict()
+                }
+            info['categorical_summary'] = categorical_info
+        
+        # Data quality metrics
+        info['data_quality'] = {
+            'completeness': (1 - df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100,
+            'duplicate_rows': df.duplicated().sum(),
+            'duplicate_percentage': (df.duplicated().sum() / len(df)) * 100
+        }
+        
+        return info
+        
+    except Exception as e:
+        logging.error(f"Error getting data info: {str(e)}")
+        return {
+            'shape': df.shape,
+            'columns': list(df.columns),
+            'error': str(e)
+        }
+
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean and standardize column names"""
+    df = df.copy()
+    
+    # Clean column names
+    df.columns = df.columns.astype(str)
+    df.columns = df.columns.str.strip()
+    df.columns = df.columns.str.replace(r'[^\w\s]', '_', regex=True)
+    df.columns = df.columns.str.replace(r'\s+', '_', regex=True)
+    df.columns = df.columns.str.lower()
+    
+    # Handle duplicate column names
+    seen = set()
+    new_columns = []
+    for col in df.columns:
+        if col in seen:
+            counter = 1
+            new_col = f"{col}_{counter}"
+            while new_col in seen:
+                counter += 1
+                new_col = f"{col}_{counter}"
+            new_columns.append(new_col)
+            seen.add(new_col)
+        else:
+            new_columns.append(col)
+            seen.add(col)
+    
+    df.columns = new_columns
+    return df
+
+def detect_outliers(series: pd.Series, method: str = 'iqr') -> pd.Series:
+    """Detect outliers in a numeric series"""
+    if method == 'iqr':
+        Q1 = series.quantile(0.25)
+        Q3 = series.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        return (series < lower_bound) | (series > upper_bound)
+    
+    elif method == 'zscore':
+        z_scores = np.abs((series - series.mean()) / series.std())
+        return z_scores > 3
+    
+    elif method == 'modified_zscore':
+        median = series.median()
+        mad = np.median(np.abs(series - median))
+        modified_z_scores = 0.6745 * (series - median) / mad
+        return np.abs(modified_z_scores) > 3.5
+    
+    else:
+        raise ValueError(f"Unknown outlier detection method: {method}")
+
+def format_number(value: Union[int, float], decimals: int = 3) -> str:
+    """Format number for display"""
+    if pd.isna(value):
+        return "N/A"
+    
+    if isinstance(value, (int, np.integer)):
+        return f"{value:,}"
+    
+    if abs(value) >= 1000000:
+        return f"{value/1000000:.{decimals}f}M"
+    elif abs(value) >= 1000:
+        return f"{value/1000:.{decimals}f}K"
+    else:
+        return f"{value:.{decimals}f}"
+
+def generate_interpretation(analysis_type: str, results: Dict[str, Any]) -> str:
+    """Generate automatic interpretation of analysis results"""
+    try:
+        if analysis_type == "descriptive":
+            return _interpret_descriptive_stats(results)
+        elif analysis_type == "hypothesis":
+            return _interpret_hypothesis_test(results)
+        elif analysis_type == "regression":
+            return _interpret_regression(results)
+        elif analysis_type == "clustering":
+            return _interpret_clustering(results)
+        else:
+            return "Analysis completed successfully. Please review the detailed results."
+    
+    except Exception as e:
+        logging.warning(f"Could not generate interpretation: {str(e)}")
+        return "Analysis completed. Interpretation could not be generated automatically."
+
+def _interpret_descriptive_stats(results: Dict[str, Any]) -> str:
+    """Interpret descriptive statistics results"""
+    interpretation = "Descriptive Statistics Summary:\n"
+    
+    if 'descriptive_stats' in results:
+        stats = results['descriptive_stats']
+        for variable, var_stats in stats.items():
+            if isinstance(var_stats, dict):
+                mean = var_stats.get('mean')
+                std = var_stats.get('std')
+                skewness = var_stats.get('skewness')
+                
+                interpretation += f"\n{variable}:\n"
+                if mean is not None:
+                    interpretation += f"  - Average: {format_number(mean)}\n"
+                if std is not None:
+                    interpretation += f"  - Variability: {format_number(std)}\n"
+                if skewness is not None:
+                    if abs(skewness) < 0.5:
+                        interpretation += "  - Distribution: Approximately normal\n"
+                    elif skewness > 0.5:
+                        interpretation += "  - Distribution: Right-skewed\n"
+                    else:
+                        interpretation += "  - Distribution: Left-skewed\n"
+    
+    return interpretation
+
+def _interpret_hypothesis_test(results: Dict[str, Any]) -> str:
+    """Interpret hypothesis test results"""
+    interpretation = "Hypothesis Test Results:\n"
+    
+    p_value = results.get('p_value')
+    alpha = results.get('alpha', 0.05)
+    test_type = results.get('test_type', 'Statistical test')
+    
+    if p_value is not None:
+        if p_value < alpha:
+            interpretation += f"The {test_type} shows a statistically significant result (p = {p_value:.4f} < α = {alpha}).\n"
+            interpretation += "The null hypothesis is rejected in favor of the alternative hypothesis."
+        else:
+            interpretation += f"The {test_type} shows no statistically significant result (p = {p_value:.4f} ≥ α = {alpha}).\n"
+            interpretation += "The null hypothesis cannot be rejected."
+    
+    return interpretation
+
+def _interpret_regression(results: Dict[str, Any]) -> str:
+    """Interpret regression results"""
+    interpretation = "Regression Analysis Summary:\n"
+    
+    r2 = results.get('r_squared')
+    if r2 is not None:
+        interpretation += f"Model explains {r2*100:.1f}% of the variance in the target variable.\n"
+        
+        if r2 >= 0.7:
+            interpretation += "This indicates a strong relationship.\n"
+        elif r2 >= 0.5:
+            interpretation += "This indicates a moderate relationship.\n"
+        elif r2 >= 0.3:
+            interpretation += "This indicates a weak relationship.\n"
+        else:
+            interpretation += "This indicates a very weak relationship.\n"
+    
+    return interpretation
+
+def _interpret_clustering(results: Dict[str, Any]) -> str:
+    """Interpret clustering results"""
+    interpretation = "Clustering Analysis Summary:\n"
+    
+    n_clusters = results.get('n_clusters')
+    silhouette_score = results.get('silhouette_score')
+    
+    if n_clusters:
+        interpretation += f"Data was grouped into {n_clusters} clusters.\n"
+    
+    if silhouette_score is not None:
+        interpretation += f"Clustering quality score: {silhouette_score:.3f}\n"
+        
+        if silhouette_score >= 0.7:
+            interpretation += "Excellent cluster separation.\n"
+        elif silhouette_score >= 0.5:
+            interpretation += "Good cluster separation.\n"
+        elif silhouette_score >= 0.3:
+            interpretation += "Moderate cluster separation.\n"
+        else:
+            interpretation += "Poor cluster separation.\n"
+    
+    return interpretation
+
+def create_visualization_path(plot_type: str, file_id: str) -> str:
+    """Create path for saving visualization"""
+    viz_dir = Path("visualizations")
+    viz_dir.mkdir(parents=True, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{file_id}_{plot_type}_{timestamp}.png"
+    
+    return str(viz_dir / filename)
+
+def cleanup_old_files(directory: str, max_age_hours: int = 24):
+    """Clean up old files from a directory"""
+    try:
+        directory_path = Path(directory)
+        if not directory_path.exists():
+            return
+        
+        current_time = datetime.now()
+        
+        for file_path in directory_path.iterdir():
+            if file_path.is_file():
+                file_age = current_time - datetime.fromtimestamp(file_path.stat().st_mtime)
+                if file_age.total_seconds() > max_age_hours * 3600:
+                    file_path.unlink()
+                    logging.info(f"Deleted old file: {file_path}")
+    
+    except Exception as e:
+        logging.error(f"Error cleaning up old files: {str(e)}")
+
+def validate_analysis_parameters(request: AnalysisRequest, df: pd.DataFrame) -> Dict[str, Any]:
+    """Validate analysis parameters against the dataset"""
+    try:
+        analysis_type = request.analysis_type
+        params = request.parameters
+        
+        # Check if required columns exist
+        if params.columns:
+            missing_columns = [col for col in params.columns if col not in df.columns]
+            if missing_columns:
+                return {
+                    'valid': False,
+                    'error': f"Columns not found in dataset: {missing_columns}"
+                }
+        
+        # Specific validations by analysis type
+        if analysis_type == "regression":
+            if not params.target_column:
+                return {'valid': False, 'error': "Target column is required for regression"}
+            
+            if params.target_column not in df.columns:
+                return {'valid': False, 'error': f"Target column '{params.target_column}' not found"}
+            
+            if not params.feature_columns:
+                return {'valid': False, 'error': "Feature columns are required for regression"}
+        
+        elif analysis_type == "hypothesis":
+            if not params.test_type:
+                return {'valid': False, 'error': "Test type is required for hypothesis testing"}
+        
+        elif analysis_type == "clustering":
+            if not params.columns:
+                return {'valid': False, 'error': "Columns are required for clustering"}
+            
+            numeric_cols = df[params.columns].select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) < 2:
+                return {'valid': False, 'error': "At least 2 numeric columns required for clustering"}
+        
+        return {'valid': True}
+        
+    except Exception as e:
+        return {'valid': False, 'error': f"Parameter validation error: {str(e)}"}
+
+def validate_data_requirements(df: pd.DataFrame, analysis_type: str, 
+                             min_rows: int = None, min_cols: int = None) -> Dict[str, Any]:
+    """Validate data meets minimum requirements for analysis"""
+    try:
+        # Default requirements
+        requirements = {
+            'descriptive': {'min_rows': 1, 'min_cols': 1},
+            'hypothesis': {'min_rows': 10, 'min_cols': 1},
+            'regression': {'min_rows': 20, 'min_cols': 2},
+            'clustering': {'min_rows': 10, 'min_cols': 2},
+            'factor_analysis': {'min_rows': 50, 'min_cols': 3}
+        }
+        
+        req = requirements.get(analysis_type, {'min_rows': 10, 'min_cols': 1})
+        min_rows = min_rows or req['min_rows']
+        min_cols = min_cols or req['min_cols']
+        
+        if len(df) < min_rows:
+            return {
+                'valid': False,
+                'error': f"Insufficient data: {len(df)} rows, minimum {min_rows} required"
+            }
+        
+        if len(df.columns) < min_cols:
+            return {
+                'valid': False,
+                'error': f"Insufficient columns: {len(df.columns)} columns, minimum {min_cols} required"
+            }
+        
+        return {'valid': True}
+        
+    except Exception as e:
+        return {'valid': False, 'error': f"Data validation error: {str(e)}"}
+
+def handle_analysis_error(error: Exception, analysis_type: str, file_id: str) -> Dict[str, Any]:
+    """Handle and log analysis errors"""
+    error_msg = str(error)
+    
+    logging.error(f"Analysis error - Type: {analysis_type}, File: {file_id}, Error: {error_msg}")
+    
+    # Common error patterns and user-friendly messages
+    if "insufficient" in error_msg.lower():
+        user_msg = "Not enough data for this analysis. Please ensure your dataset meets the minimum requirements."
+    elif "column" in error_msg.lower() and "not found" in error_msg.lower():
+        user_msg = "One or more specified columns were not found in the dataset."
+    elif "numeric" in error_msg.lower():
+        user_msg = "This analysis requires numeric data. Please check your column selections."
+    elif "memory" in error_msg.lower():
+        user_msg = "Dataset is too large for this analysis. Please try with a smaller dataset."
+    else:
+        user_msg = f"Analysis failed: {error_msg}"
+    
+    return {
+        'error': user_msg,
+        'technical_error': error_msg,
+        'analysis_type': analysis_type,
+        'file_id': file_id,
+        'timestamp': datetime.now()
+    }
+
+def log_analysis_operation(analysis_type: str, file_id: str, parameters: Dict[str, Any]):
+    """Log analysis operation for monitoring and debugging"""
+    log_data = {
+        'timestamp': datetime.now().isoformat(),
+        'analysis_type': analysis_type,
+        'file_id': file_id,
+        'parameters': parameters
+    }
+    
+    logging.info(f"Analysis started: {json.dumps(log_data, default=str)}")
+
+def validate_file_content(file_path: str) -> Dict[str, Any]:
+    """Validate uploaded file content"""
+    try:
+        # Check file size
+        file_size = os.path.getsize(file_path)
+        if file_size > settings.MAX_FILE_SIZE:
+            return {
+                'valid': False,
+                'error': f"File too large: {file_size} bytes, maximum {settings.MAX_FILE_SIZE} bytes"
+            }
+        
+        # Try to load and validate content
+        df = load_data_file(file_path)
+        
+        # Check dimensions
+        if len(df) > settings.MAX_ROWS:
+            return {
+                'valid': False,
+                'error': f"Too many rows: {len(df)}, maximum {settings.MAX_ROWS}"
+            }
+        
+        if len(df.columns) > settings.MAX_COLUMNS:
+            return {
+                'valid': False,
+                'error': f"Too many columns: {len(df.columns)}, maximum {settings.MAX_COLUMNS}"
+            }
+        
+        return {'valid': True, 'dataframe': df}
+        
+    except Exception as e:
+        return {'valid': False, 'error': f"File validation failed: {str(e)}"}
+
+def sanitize_parameters(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Sanitize and validate analysis parameters"""
+    sanitized = {}
+    
+    for key, value in params.items():
+        if isinstance(value, str):
+            # Remove potentially harmful characters
+            value = re.sub(r'[<>"\']', '', value)
+            value = value.strip()
+        
+        elif isinstance(value, (int, float)):
+            # Validate numeric ranges
+            if key == 'alpha' and not (0 < value < 1):
+                value = 0.05
+            elif key == 'test_size' and not (0 < value < 1):
+                value = 0.2
+            elif key == 'n_clusters' and value < 2:
+                value = 2
+        
+        sanitized[key] = value
+    
+    return sanitized
+
+=== MODULES KLASÖRÜ ===
+
+--- modules/descriptive_stats/calculator.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 1000+ satır kod içeriyor]
+
+--- modules/descriptive_stats/advanced_stats.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 800+ satır kod içeriyor]
+
+--- modules/data_processing/cleaner.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 900+ satır kod içeriyor]
+
+--- modules/data_processing/preprocessor.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 700+ satır kod içeriyor]
+
+--- modules/hypothesis_testing/tester.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 980+ satır kod içeriyor]
+
+--- modules/hypothesis_testing/advanced_tests.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 650+ satır kod içeriyor]
+
+--- modules/regression/analyzer.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 1000+ satır kod içeriyor]
+
+--- modules/regression/advanced_regression.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 900+ satır kod içeriyor]
+
+--- modules/visualization/plotter.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 700+ satır kod içeriyor]
+
+--- modules/advanced_analysis/analyzer.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 800+ satır kod içeriyor]
+
+--- modules/factor_clustering/analyzer.py ---
+[İçerik çok uzun olduğu için kısaltıldı - 990+ satır kod içeriyor]
+
+--- modules/domain_specific/ ---
+Bu klasörde 7 adet domain-specific analiz modülü bulunmaktadır:
+- education.py
+- engineering.py  
+- environmental.py
+- finance.py
+- healthcare.py
+- marketing.py
+- social_sciences.py
+
+Her modül kendi alanına özel analiz fonksiyonları içermektedir.
+
+=== TOPLAM DOSYA SAYISI ===
+- Ana dosyalar: 3 (requirements.txt, test_api.py, API_DOCUMENTATION.md)
+- App klasörü: 4 dosya (main.py, config.py, models.py, utils.py)
+- Modules klasörü: 20+ Python modülü
+- Domain-specific modüller: 7 dosya
+- __init__.py dosyaları: 8 dosya
+
+Toplam: 40+ dosya
+
+=== BACKEND ÖZET ===
+VeriVio backend'i FastAPI tabanlı kapsamlı bir veri analizi API'sidir. 
+Betimsel istatistikler, hipotez testleri, regresyon analizi, kümeleme, 
+faktör analizi, makine öğrenmesi ve domain-specific analizler sunar.
+Otomatik veri temizleme, görselleştirme ve yorumlama özellikleri içerir.
